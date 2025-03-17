@@ -11,10 +11,13 @@ import { createEvent, getAllEvents, getEvent, updateEvent } from "./controllers/
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
+import http from "http";
+import { Server } from "socket.io";
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT as string, 10) || 5000;
 const upload = multer({ dest: 'uploads/' }); // Temporary storage before uploading to cloudinary
 
@@ -24,6 +27,28 @@ app.use(cors());
 
 // Connect to MongoDB
 connectDB();
+
+// Enable CORS for Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Allows all origins
+    methods: ["GET", "POST"],
+  },
+});
+
+// Handle socket connections
+io.on("connection", (socket) => {
+    console.log(`User connected: ${socket.id}`);
+  
+    socket.on("message", (data) => {
+      console.log("Message received:", data);
+      io.emit("message", data); // Broadcast message to all clients
+    });
+  
+    socket.on("disconnect", () => {
+      console.log(`User disconnected: ${socket.id}`);
+    });
+  });
 
 // app.get("/", initialController);
 app.get("/users", authMiddleware, getAllUsers);
@@ -41,6 +66,6 @@ app.post("/admin", adminLogin);
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, updateEvent);
 
-app.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
