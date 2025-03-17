@@ -7,7 +7,7 @@ export interface IUser extends Document {
     imgURL: string;
     gender: string;
     city: string;
-    approved: boolean;
+    approved: string;
     ques_ans?: object;
     interests?: string[];
 }
@@ -20,7 +20,7 @@ const UserSchema: Schema = new Schema(
     imgURL: { type: String, required: true },
     gender: { type: String, required: true },
     city: { type: String, required: true },
-    approved: { type: Boolean, default: false },
+    approved: { type: String, default: 'pending' },
     ques_ans: { type: Object },
     interests: { type: [String] },
   },

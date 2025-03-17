@@ -36,6 +36,18 @@ export async function getUser(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function getUserApproved(req: any, res: Response): Promise<void> {
+    console.log(req.user)
+    try {
+        // Optional: Check if the database is accessible
+        const user = await User.findOne({ _id: req.user });
+        console.log(user);
+        res.json({approved: user!.approved});
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function checkUsers(req: Request, res: Response): Promise<void> {
     try {
         const isExistsEmail = await User.findOne({ email: req.query.email });
