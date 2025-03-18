@@ -7,7 +7,7 @@ import connectDB from "./config/dbConfig";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile  } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
-import { applyEvent, createEvent, getAllEvents, getEvent, getUserPool, updateEvent } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, getAllEvents, getEvent, getUserPool, updateEvent } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -67,6 +67,7 @@ app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
 app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/applyEvent", authMiddleware, applyEvent);
+app.post("/eventUserApproval", authMiddleware, approveEventUser);
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, updateEvent);
 

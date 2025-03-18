@@ -7,7 +7,7 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "default_secret";
 const authMiddleware = async (req: any, res: Response, next: NextFunction): Promise<void> => {
   try {
-    console.log("----- authMiddleware invoked -----");
+    // console.log("----- authMiddleware invoked -----");
 
     /** 1️⃣ Extract Authorization Header */
     const authHeader = req.headers.authorization;
@@ -19,7 +19,7 @@ const authMiddleware = async (req: any, res: Response, next: NextFunction): Prom
 
     /** 2️⃣ Extract Token */
     const processedToken = authHeader.split(" ")[1];
-    console.log(`processToken:${processedToken}`);
+    // console.log(`processToken:${processedToken}`);
 
     /** 3️⃣ Verify JWT */
     let decoded: any;

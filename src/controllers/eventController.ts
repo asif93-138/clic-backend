@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
+import User from '../models/user.model';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -24,19 +25,25 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
         const result = await Event.findOne({ _id: req.params.id });
-        res.json(result);
+        if (result && result.pending_members && result.pending_members.length > 0) {
+            const users = await User.find({ _id: { $in: result.pending_members } });
+            res.json({pending: users, result});
+        } else {
+            res.json(result);
+        }
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
 }
 
-export async function getUserPool(req: Request, res: Response): Promise<void> {
+export async function getUserPool(req: any, res: Response): Promise<void> {
     try {
-        const result = await Event.find()
+        const userResult = await eventUser.find({ user_id: req.user });
+        const upcomingResult = await Event.find()
             .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
             .limit(10); // Limit to the latest 10 documents
 
-        res.json({confirmed: [], upcoming: result});
+        res.json({appliedAndConfirmed: userResult, upcoming: upcomingResult});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -76,6 +83,23 @@ export async function applyEvent(req: Request, res: Response): Promise<void> {
         const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
         if (insertResult._id && updatedResult && updatedResult._id) {
             res.json({ message: "Successfully applied to event" });
+        } else {
+            res.status(400).json({ message: "failed!" });
+        }
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
+export async function approveEventUser(req: Request, res: Response): Promise<void> {
+    try {
+        const dataObj_1 = req.body.firstObj;
+        const dataObj_2 = req.body.secondObj;
+        const dataObj_3 = req.body.thirdObj;
+        const eventUserResult = await eventUser.updateOne({user_id: dataObj_1.user_id} , dataObj_2);
+        const eventResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_3);
+        if (eventUserResult.acknowledged && eventResult && eventResult._id) {
+            res.json({ message: "Successfully approved user!" });
         } else {
             res.status(400).json({ message: "failed!" });
         }
