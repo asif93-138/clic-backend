@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import Event from '../models/event';
+import eventUser from '../models/eventUser';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -29,6 +30,18 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function getUserPool(req: Request, res: Response): Promise<void> {
+    try {
+        const result = await Event.find()
+            .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
+            .limit(10); // Limit to the latest 10 documents
+
+        res.json({confirmed: [], upcoming: result});
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function createEvent(req: any, res: Response): Promise<void> {
     console.log("Request Obj:", req.body);
     try {
@@ -50,6 +63,22 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         dataObj.imgURL = result.secure_url;
         const insertResult = await Event.create(dataObj);
         res.json(insertResult);
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
+export async function applyEvent(req: Request, res: Response): Promise<void> {
+    try {
+        const dataObj_1 = req.body.firstObj;
+        const dataObj_2 = req.body.secondObj;
+        const insertResult = await eventUser.create(dataObj_1);
+        const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
+        if (insertResult._id && updatedResult && updatedResult._id) {
+            res.json({ message: "Successfully applied to event" });
+        } else {
+            res.status(400).json({ message: "failed!" });
+        }
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
