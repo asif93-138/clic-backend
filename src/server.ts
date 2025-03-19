@@ -3,11 +3,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import multer from 'multer';
 import connectDB from "./config/dbConfig";
-// import initialController from "./initialController";
+import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile  } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, getAllEvents, getEvent, getUserPool, updateEvent } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, getAllEvents, getEvent, getEventApplicationAndApproval, getUserPool, updateEvent } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -50,9 +50,9 @@ io.on("connection", (socket) => {
     });
   });
 
-// app.get("/", initialController);
+app.get("/", initialController);
 app.get("/users", authMiddleware, getAllUsers);
-app.get("/user/:id", authMiddleware, getUser);
+app.get("/user", authMiddleware, getUser);
 app.get("/userProfilePicture", authMiddleware, getUserPP);
 app.get("/events", authMiddleware, getAllEvents);
 app.get("/event/:id", authMiddleware, getEvent);
@@ -62,12 +62,15 @@ app.get("/checkUser", checkUsers);
 app.get("/cities", citiesSearchController);
 app.get("/interests", interestsSearchController);
 app.get("/userPools", authMiddleware, getUserPool);
+app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplicationAndApproval);
+
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
 app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/applyEvent", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
+
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, updateEvent);
 

@@ -25,9 +25,11 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
         const result = await Event.findOne({ _id: req.params.id });
-        if (result && result.pending_members && result.pending_members.length > 0) {
-            const users = await User.find({ _id: { $in: result.pending_members } });
-            res.json({pending: users, result});
+        console.log(result);
+        if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
+            const arr = [...result.pending_members, ...result.approved_members];
+            const users = await User.find({ _id: { $in: arr } });
+            res.json({members: users, result});
         } else {
             res.json(result);
         }
@@ -70,6 +72,15 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         dataObj.imgURL = result.secure_url;
         const insertResult = await Event.create(dataObj);
         res.json(insertResult);
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
+export async function getEventApplicationAndApproval(req: Request, res: Response): Promise<void> {
+    try {
+        const result = await eventUser.find();
+        res.json(result);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }

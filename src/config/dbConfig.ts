@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MONGO_URI = "mongodb+srv://clic-db-manager:NSNiWLSqsy0nOniw@cluster0.iuweya4.mongodb.net/clicDB?retryWrites=true&w=majority&appName=Cluster0";
+export const MONGO_URI = "mongodb+srv://clic-db-manager:NSNiWLSqsy0nOniw@cluster0.iuweya4.mongodb.net/clicDB?retryWrites=true&w=majority&appName=Cluster0";
 
 const connectDB = async () => {
   try {
