@@ -38,6 +38,28 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function getEventForApp(req: any, res: Response): Promise<void> {
+    try {
+        console.log('touched!!');
+        // Optional: Check if the database is accessible
+        const result = await Event.findOne({ _id: req.params.id });
+        console.log(result);
+        if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
+            const arr = [...result.pending_members, ...result.approved_members];
+            const users = await User.find({ _id: { $in: arr } });
+            if (result.pending_members.includes(req.user)) {
+                res.json({members: users, result, btnTxt: 'pending'});
+            } else if (result.approved_members.includes(req.user)) {
+                res.json({members: users, result, btnTxt: 'cancel'});
+            } else {
+                res.json({members: users, result, btnTxt: 'join'});
+            }
+        }
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function getUserPool(req: any, res: Response): Promise<void> {
     try {
         let arr_1: any[] = [], arr_2: any[] = [];
