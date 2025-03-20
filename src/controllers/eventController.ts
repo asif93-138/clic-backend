@@ -40,12 +40,30 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 
 export async function getUserPool(req: any, res: Response): Promise<void> {
     try {
+        let arr_1: any[] = [], arr_2: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
+        userResult.forEach((element: any) => {
+            if (element.status === "pending") {
+                arr_1.push(element.event_id);                
+            } else if (element.status === "approved") {
+                arr_2.push(element.event_id);
+            }
+        });
+        console.log("Pending:", arr_1);
+        console.log("Approved:", arr_2);
+        if (arr_1.length > 0) {
+            const pendingResult = await Event.find({ _id: { $in: arr_1 } });
+            arr_1 = pendingResult;
+        }
+        if (arr_2.length > 0) {
+            const approvedResult = await Event.find({ _id: { $in: arr_2 } });
+            arr_2 = approvedResult;
+        }
         const upcomingResult = await Event.find()
             .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
             .limit(10); // Limit to the latest 10 documents
 
-        res.json({appliedAndConfirmed: userResult, upcoming: upcomingResult});
+        res.json({pending: arr_1, approved: arr_2, upcoming: upcomingResult});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
