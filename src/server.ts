@@ -41,7 +41,7 @@ io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
   
     socket.on("message", (data) => {
-      console.log("Message received:", data);
+      console.log("User", socket.id, "Message received:", data);
       io.emit("message", data); // Broadcast message to all clients
     });
   
