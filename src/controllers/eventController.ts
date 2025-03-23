@@ -29,7 +29,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
             const arr = [...result.pending_members, ...result.approved_members];
             const users = await User.find({ _id: { $in: arr } });
-            res.json({members: users, result});
+            res.json({ members: users, result });
         } else {
             res.json(result);
         }
@@ -48,11 +48,11 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
             const arr = [...result.pending_members, ...result.approved_members];
             const users = await User.find({ _id: { $in: arr } });
             if (result.pending_members.includes(req.user)) {
-                res.json({members: users, result, btnTxt: 'pending'});
+                res.json({ members: users, result, btnTxt: 'pending' });
             } else if (result.approved_members.includes(req.user)) {
-                res.json({members: users, result, btnTxt: 'cancel'});
+                res.json({ members: users, result, btnTxt: 'cancel' });
             } else {
-                res.json({members: users, result, btnTxt: 'join'});
+                res.json({ members: users, result, btnTxt: 'join' });
             }
         }
     } catch (error) {
@@ -66,7 +66,7 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
         const userResult = await eventUser.find({ user_id: req.user });
         userResult.forEach((element: any) => {
             if (element.status === "pending") {
-                arr_1.push(element.event_id);                
+                arr_1.push(element.event_id);
             } else if (element.status === "approved") {
                 arr_2.push(element.event_id);
             }
@@ -85,14 +85,15 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
             .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
             .limit(10); // Limit to the latest 10 documents
 
-        res.json({pending: arr_1, approved: arr_2, upcoming: upcomingResult});
+        res.json({ pending: arr_1, approved: arr_2, upcoming: upcomingResult });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
 }
 
 export async function createEvent(req: any, res: Response): Promise<void> {
-    console.log("Request Obj:", req.body);
+    // console.log("Request Obj:", req.body);
+    // console.log("Request File:", req.file);
     try {
 
         if (!req.file) {
@@ -147,7 +148,7 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
         const dataObj_1 = req.body.firstObj;
         const dataObj_2 = req.body.secondObj;
         const dataObj_3 = req.body.thirdObj;
-        const eventUserResult = await eventUser.updateOne({user_id: dataObj_1.user_id} , dataObj_2);
+        const eventUserResult = await eventUser.updateOne({ user_id: dataObj_1.user_id }, dataObj_2);
         const eventResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_3);
         if (eventUserResult.acknowledged && eventResult && eventResult._id) {
             res.json({ message: "Successfully approved user!" });
@@ -159,16 +160,35 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
     }
 }
 
-export async function updateEvent(req: Request, res: Response): Promise<void> {
-    console.log("Request Obj:", req.body);
-    console.log("Request Params:", req.params);
+export async function updateEvent(req: any, res: Response): Promise<void> {
+    // console.log("Request Params:", req.params);
+    // console.log("Request Obj:", req.body);
+    // console.log("Request Obj:", req.file);
+
     try {
         if (!req.params || !req.params.id) {
             res.status(400).json({ message: 'Event ID is required' });
             return;
         }
-        const result = await Event.findByIdAndUpdate(req.params.id, req.body);
-        res.json(result);
+
+        if (req.file) {
+            // Upload to Cloudinary
+            const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
+            });
+
+            // Delete the file from local storage
+            fs.unlinkSync(req.file.path);
+
+            const dataObj = req.body;
+            dataObj.imgURL = cloudinaryRes.secure_url;
+            const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
+            res.json(result);
+        } else {
+            const dataObj = req.body;
+            const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
+            res.json(result);
+        }
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }

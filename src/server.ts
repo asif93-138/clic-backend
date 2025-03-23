@@ -73,7 +73,7 @@ app.post("/applyEvent", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 
 app.put("/user/:id", authMiddleware, updateUser);
-app.put("/event/:id", authMiddleware, updateEvent);
+app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
 
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
