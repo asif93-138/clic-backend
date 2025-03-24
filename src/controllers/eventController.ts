@@ -127,16 +127,31 @@ export async function getEventApplicationAndApproval(req: Request, res: Response
     }
 }
 
-export async function applyEvent(req: Request, res: Response): Promise<void> {
+export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
-        const dataObj_1 = req.body.firstObj;
-        const dataObj_2 = req.body.secondObj;
-        const insertResult = await eventUser.create(dataObj_1);
-        const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
-        if (insertResult._id && updatedResult && updatedResult._id) {
-            res.json({ message: "Successfully applied to event" });
+        console.log("apply event obj:", req.body);
+        const {eventId, btnTxt, approved_members, pending_members, status} = req.body;
+        const dataObj_1 = {event_id: eventId, user_id: req.user, btnTxt, status};
+        const dataObj_2 = {approved_members, pending_members};
+        if (dataObj_1.btnTxt === 'join') {
+            dataObj_1.status = 'pending';
+            dataObj_2.pending_members.push(dataObj_1.user_id);
+            const insertResult = await eventUser.create(dataObj_1);
+            const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
+            if (insertResult._id && updatedResult && updatedResult._id) {
+                res.json({ btnTxt: 'pending' });
+            } else {
+                res.status(400).json({ message: "failed!" });
+            }
         } else {
-            res.status(400).json({ message: "failed!" });
+            dataObj_2.approved_members.splice(dataObj_2.approved_members.indexOf(dataObj_1.user_id), 1);
+            const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
+            const deleteResult = await eventUser.deleteOne({ user_id: dataObj_1.user_id });
+            if (updatedResult && updatedResult._id && deleteResult.acknowledged) {
+                res.json({ btnTxt: 'join' });
+            }   else {
+                res.status(400).json({ message: "failed!" });
+            }
         }
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);

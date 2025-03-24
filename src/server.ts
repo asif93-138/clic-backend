@@ -69,7 +69,7 @@ app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
 app.post("/login", userLogin);
 app.post("/admin", adminLogin);
-app.post("/applyEvent", authMiddleware, applyEvent);
+app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 
 app.put("/user/:id", authMiddleware, updateUser);
