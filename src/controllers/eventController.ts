@@ -47,12 +47,25 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
         if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
             const arr = [...result.pending_members, ...result.approved_members];
             const users = await User.find({ _id: { $in: arr } });
+            
+
+            // user obj
+            const userObj:any = await User.findOne({ _id: req.user });
+            const user = {user_id:req.user,
+                username: userObj.userName,
+                gender:userObj.gender[0],
+                interested: userObj.gender[0] === 'M' ? "F" : "M" 
+
+            }
+            console.log("Get event for app :", req.user);
+            console.log("User Obj :", user);
+
             if (result.pending_members.includes(req.user)) {
-                res.json({ members: users, result, btnTxt: 'pending' });
+                res.json({ members: users, result, btnTxt: 'pending', user });
             } else if (result.approved_members.includes(req.user)) {
-                res.json({ members: users, result, btnTxt: 'cancel' });
+                res.json({ members: users, result, btnTxt: 'cancel', user });
             } else {
-                res.json({ members: users, result, btnTxt: 'join' });
+                res.json({ members: users, result, btnTxt: 'join', user });
             }
         }
     } catch (error) {

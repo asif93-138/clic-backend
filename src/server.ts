@@ -38,14 +38,14 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket:any) => {
-  // const event_id = socket.handshake.query.event_id;
-  // const user_id = socket.handshake.query.user_id;
-  // const gender = socket.handshake.query.gender;
-  // const interested = socket.handshake.query.interested;
-  // socket.event_id = event_id; 
-  // socket.user_id = user_id; 
-  // socket.gender = gender; 
-  // socket.interested = interested; 
+  const event_id = socket.handshake.query.event_id;
+  const user_id = socket.handshake.query.user_id;
+  const gender = socket.handshake.query.gender;
+  const interested = socket.handshake.query.interested;
+  socket.event_id = event_id; 
+  socket.user_id = user_id; 
+  socket.gender = gender; 
+  socket.interested = interested; 
   console.log('Client connected:', socket.id);
 
   socket.on('join_event', (event_id:any) => {
@@ -60,12 +60,12 @@ io.on('connection', (socket:any) => {
   });
 
   socket.on('disconnect', () => {
-    // const event_id = socket.event_id;
-    // const user_id = socket.user_id;
-    // const gender = socket.gender;
-    // const interested = socket.interested;
-    // disconnectUser(event_id, {user_id, gender, interested})
+    const event_id = socket.event_id;
+    const user_id = socket.user_id;
+    const gender = socket.gender;
+    const interested = socket.interested;
     console.log('Client disconnected:', socket.id);
+    disconnectUser(event_id, {user_id, gender, interested});
   });
 });
 
