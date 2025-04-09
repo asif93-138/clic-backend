@@ -123,9 +123,9 @@ async function eventJoining(req:any, res:any) {
   const result = await OpEvent.findOne({ event_id: event_id });
   if (!result) {
     try {
-      const eventTime = hasTimePassedPlus3Hours("2025-04-09T15:00").adjustedTime;
+      const eventTime = hasTimePassedPlus3Hours("2025-04-10T15:00").adjustedTime;
 
-      if (hasTimePassedPlus3Hours("2025-04-09T15:00").hasPassed) {
+      if (hasTimePassedPlus3Hours("2025-04-10T15:00").hasPassed) {
         res.status(410).json({message: "event ended!"});
         return;
       }
@@ -164,7 +164,6 @@ async function eventJoining(req:any, res:any) {
           { new: true }
         );
   
-        console.log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@----- updated waiting_room array of ${user.gender} : ${user.user_id} -----`);
   
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
@@ -255,6 +254,7 @@ app.post('/confirmDate', async (req:any, res:any) => {
 })
 
 function broadCastStartCall(dateRoomId:any) {
+  console.log('socket triggering for -start_date-');
   io.to(dateRoomId).emit("start_date", { timer: 30 });
 }
 
