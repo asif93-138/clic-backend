@@ -57,11 +57,9 @@ export async function getUserProfile(req: any, res: Response): Promise<void> {
 }
 
 export async function getUserApproved(req: any, res: Response): Promise<void> {
-    console.log(req.user)
     try {
         // Optional: Check if the database is accessible
         const user = await User.findOne({ _id: req.user });
-        console.log(user);
         res.json({approved: user!.approved});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
@@ -88,7 +86,6 @@ export async function checkUsers(req: Request, res: Response): Promise<void> {
 
 
 export async function createUser(req: Request, res: Response): Promise<void> {
-    console.log("Request Obj:", req.body);
     try {
 
         if (!req.file) {
@@ -109,7 +106,6 @@ export async function createUser(req: Request, res: Response): Promise<void> {
         dataObj.password = hashedPassword;
         const newUser = new User(dataObj);
         await newUser.save();
-        console.log(newUser);
         const token = generateToken({ id: newUser._id });
         res.json({newUser, token});
     } catch (error) {
@@ -118,8 +114,6 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 }
 
 export async function updateUser(req: Request, res: Response): Promise<void> {
-    console.log("Request Obj:", req.body);
-    console.log("Request Params:", req.params);
     try {
         if (!req.params || !req.params.id) {
             res.status(400).json({ message: 'User ID is required' });

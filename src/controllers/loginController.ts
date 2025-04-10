@@ -17,7 +17,6 @@ export async function userLogin(req: Request, res: Response): Promise<void> {
         let ID;
         const isExists = await User.findOne({ email: req.body.email });
         if (isExists?._id instanceof mongoose.Types.ObjectId) {
-            console.log(extractObjectIdString(isExists._id));
             ID = extractObjectIdString(isExists._id);
         }
         if (isExists) {

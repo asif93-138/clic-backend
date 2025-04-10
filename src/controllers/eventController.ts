@@ -25,7 +25,6 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
         const result = await Event.findOne({ _id: req.params.id });
-        console.log(result);
         if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
             const arr = [...result.pending_members, ...result.approved_members];
             const users = await User.find({ _id: { $in: arr } });
@@ -40,10 +39,8 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 
 export async function getEventForApp(req: any, res: Response): Promise<void> {
     try {
-        console.log('touched!!');
         // Optional: Check if the database is accessible
         const result = await Event.findOne({ _id: req.params.id });
-        console.log(result);
         if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
             const arr = [...result.pending_members, ...result.approved_members];
             const users = await User.find({ _id: { $in: arr } });
@@ -57,8 +54,6 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
                 interested: userObj.gender[0] === 'M' ? "F" : "M" 
 
             }
-            console.log("Get event for app :", req.user);
-            console.log("User Obj :", user);
 
             if (result.pending_members.includes(req.user)) {
                 res.json({ members: users, result, btnTxt: 'pending', user });
@@ -84,8 +79,6 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
                 arr_2.push(element.event_id);
             }
         });
-        console.log("Pending:", arr_1);
-        console.log("Approved:", arr_2);
         if (arr_1.length > 0) {
             const pendingResult = await Event.find({ _id: { $in: arr_1 } });
             arr_1 = pendingResult;
@@ -105,8 +98,6 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
 }
 
 export async function createEvent(req: any, res: Response): Promise<void> {
-    // console.log("Request Obj:", req.body);
-    // console.log("Request File:", req.file);
     try {
 
         if (!req.file) {
@@ -142,7 +133,6 @@ export async function getEventApplicationAndApproval(req: Request, res: Response
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
-        console.log("apply event obj:", req.body);
         const {eventId, btnTxt, approved_members, pending_members, status} = req.body;
         const dataObj_1 = {event_id: eventId, user_id: req.user, btnTxt, status};
         const dataObj_2 = {approved_members, pending_members};

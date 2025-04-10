@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import multer from 'multer';
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
-import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile  } from "./controllers/userController";
+import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent } from "./controllers/eventController";
@@ -23,7 +23,7 @@ const PORT = parseInt(process.env.PORT as string, 10) || 5000;
 const upload = multer({ dest: 'uploads/' }); // Temporary storage before uploading to cloudinary
 
 // Middleware to parse JSON and URL-encoded request bodies
-app.use(express.json()); 
+app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
@@ -37,23 +37,23 @@ const io = new Server(server, {
   },
 });
 
-io.on('connection', (socket:any) => {
+io.on('connection', (socket: any) => {
   const event_id = socket.handshake.query.event_id;
   const user_id = socket.handshake.query.user_id;
   const gender = socket.handshake.query.gender;
   const interested = socket.handshake.query.interested;
-  socket.event_id = event_id; 
-  socket.user_id = user_id; 
-  socket.gender = gender; 
-  socket.interested = interested; 
+  socket.event_id = event_id;
+  socket.user_id = user_id;
+  socket.gender = gender;
+  socket.interested = interested;
   console.log('Client connected:', socket.id);
 
-  socket.on('join_event', (event_id:any) => {
+  socket.on('join_event', (event_id: any) => {
     socket.join(event_id);
     console.log(`User ${socket.id} joined event room ${event_id}`);
   });
 
-  socket.on("switch_room", ({ from, to }:any) => {
+  socket.on("switch_room", ({ from, to }: any) => {
     socket.leave(from);
     socket.join(to);
     console.log(`Socket ${socket.id} switched from ${from} to room ${to}`);
@@ -65,18 +65,14 @@ io.on('connection', (socket:any) => {
     const gender = socket.gender;
     const interested = socket.interested;
     console.log('Client disconnected:', socket.id);
-    disconnectUser(event_id, {user_id, gender, interested});
+    disconnectUser(event_id, { user_id, gender, interested });
   });
 });
 
-async function disconnectUser(event_id:any, user:any) {
+async function disconnectUser(event_id: any, user: any) {
   console.log('- disconnectUser Function started -');
-  console.log(event_id);
-  console.log(user);
-  const result = await OpEvent.findOne({ event_id: event_id });
-
   await leaveDatingRoom(event_id, user.user_id);
-  await eventLeaving({event_id, user});
+  await eventLeaving({ event_id, user });
   console.log('- disconnectUser Function ended -');
 }
 
@@ -84,20 +80,20 @@ app.post('/join', async (req, res) => {
   eventJoining(req, res);
 });
 
-function hasTimePassedPlus3Hours(datetimeStr:any) {
+function hasTimePassedPlus3Hours(datetimeStr: any) {
   // Parse input string to local time
   const [datePart, timePart] = datetimeStr.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute] = timePart.split(':').map(Number);
-  
+
   // Create local Date object
   const originalDate = new Date(year, month - 1, day, hour, minute);
-  
+
   // Add 3 hours
   const futureDate = new Date(originalDate.getTime() + 3 * 60 * 60 * 1000);
 
   // Format adjusted date to "YYYY-MM-DDTHH:mm"
-  const formatDateLocal = (date:any) => {
+  const formatDateLocal = (date: any) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -116,17 +112,17 @@ function hasTimePassedPlus3Hours(datetimeStr:any) {
   };
 }
 
-async function eventJoining(req:any, res:any) {
+async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
-  console.log(req.body);
+  let flag = false;
   const { event_id, user } = req.body;
   const result = await OpEvent.findOne({ event_id: event_id });
   if (!result) {
     try {
-      const eventTime = hasTimePassedPlus3Hours("2025-04-10T15:00").adjustedTime;
+      const eventTime = hasTimePassedPlus3Hours("2025-04-11T15:00").adjustedTime;
 
-      if (hasTimePassedPlus3Hours("2025-04-10T15:00").hasPassed) {
-        res.status(410).json({message: "event ended!"});
+      if (hasTimePassedPlus3Hours("2025-04-11T15:00").hasPassed) {
+        res.status(410).json({ message: "event ended!" });
         return;
       }
 
@@ -149,7 +145,7 @@ async function eventJoining(req:any, res:any) {
   } else {
     const resultNew = await OpEvent.findOne({ event_id: event_id });
     const genderArr = result.waiting_room[user.gender];
-    let flag = false;
+
     for (let i = 0; i < genderArr.length; i++) {
       if (genderArr[i].user_id === user.user_id) {
         flag = true;
@@ -163,8 +159,8 @@ async function eventJoining(req:any, res:any) {
           { $push: { [`waiting_room.${user.gender}`]: user } }, //
           { new: true }
         );
-  
-  
+
+
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
         console.error(error);
@@ -173,94 +169,14 @@ async function eventJoining(req:any, res:any) {
     }
   }
   res.on('finish', () => {
-    pairingFunction(user, event_id);
+    if (!flag) pairingFunction(user, event_id);
   });
 
   console.log('----- JOIN ENDED -----');
 }
 
-app.post('/confirmDate', async (req:any, res:any) => {
-  console.log('----- CONFIRM DATE STARTED -----');
-  console.log(req.body);
-
-  const { dateRoomId, event_id, userData, pair } = req.body;
-
-  const result:any = await OpEvent.findOne({ event_id: event_id });
-
-  let indexM, indexF;
-
-  if (userData.gender === "M") {
-    result.waiting_room.M.forEach((obj:any, index:any) => {
-      if (obj.user_id === userData.user_id) {
-        indexM = index;
-      }
-    })
-    const updatedArrM = result.waiting_room.M.toSpliced(indexM, 1); // Add support for MMFF
-    const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: updatedArrM , F: result.waiting_room.F } });
-  } else {
-    result.waiting_room.F.forEach((obj:any, index:any) => {
-      if (obj.user_id === userData.user_id) {
-        indexF = index;
-      }
-    })
-    const updatedArrF = result.waiting_room.F.toSpliced(indexF, 1); // Add support for MMFF
-    const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: result.waiting_room.M , F: updatedArrF } });
-  }
-
-  let arr:any;
-
-  //add
-  let updateWithThisIndex = -1;
-  if (result.dating_room.length === 0) {
-    arr = { pair, dateRoomId, userData: [userData], extension: [] };
-    //update full waiting room value
-    //remove from waiting
-    const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [arr] });
-  } else {
-    //rem
-
-    result.dating_room.forEach((obj:any, index:any) => { //save index (index init at -1)
-      if (obj.pair.join() === pair.join()) {
-        obj.userData.push(userData)
-        arr = obj;
-        updateWithThisIndex = index
-      }
-    })
-
-    if (updateWithThisIndex === -1) {
-      //push
-      arr = { pair, dateRoomId, userData: [userData], extension: [] };
-      const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, arr] });
-    } else {
-      //update full waiting room value
-      let updatedValue = result.dating_room
-      updatedValue[updateWithThisIndex] = arr
-      const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: updatedValue });
-    }
-  }
-
-
-  //remove
-  if (arr.userData.length > 1) {
-    const callHistoryArr = pair.sort();
-    const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
-    broadCastStartCall(dateRoomId);
-  }
-
-  console.log('----- CONFIRM DATE ENDED -----');
-  //response back with 10s
-  res.status(200).json({ message: 10 });
-
-})
-
-function broadCastStartCall(dateRoomId:any) {
-  console.log('socket triggering for -start_date-');
-  io.to(dateRoomId).emit("start_date", { timer: 30 });
-}
-
 app.put('/leaveDatingRoom', async (req, res) => {
   console.log('--- LEAVE DATING STARTED ---');
-  console.log(req.body);
 
   // await onLeave(req.body.event_id, req.body.user_id, req.body.isDisconnected, res);
   leaveDatingRoom(req.body.event_id, req.body.user_id);
@@ -268,11 +184,9 @@ app.put('/leaveDatingRoom', async (req, res) => {
   res.json({ message: 'leaving dating room..' });
 })
 
-async function leaveDatingRoom(event_id:any, user_id:any) {
+async function leaveDatingRoom(event_id: any, user_id: any) {
   console.log('----- leaveDatingRoom function started -----');
-  const result:any = await OpEvent.findOne({ event_id: event_id });
-  console.log('----- initial dating_room array -----');
-  console.log(result.dating_room);
+  const result: any = await OpEvent.findOne({ event_id: event_id });
   let data;
   //conditional
   for (let i = 0; i < result.dating_room.length; i++) {
@@ -281,8 +195,6 @@ async function leaveDatingRoom(event_id:any, user_id:any) {
       data = result.dating_room[i];
       // leaveDating and joinWaiting logic here
       const updatedArr = result.dating_room.toSpliced(i, 1);
-      console.log('----- updated dating_room array -----');
-      console.log(updatedArr);
 
       const updatedResult = await OpEvent.findOneAndUpdate(
         { event_id: event_id },
@@ -301,19 +213,15 @@ async function leaveDatingRoom(event_id:any, user_id:any) {
 }
 
 app.delete("/leave_event", async (req, res) => {
-  console.log('--- Req Body of leave_event api ---');
-  console.log(req.body);
-  console.log('--- Req Body of leave_event api ---');
   eventLeaving(req.body);
-  res.json({message: 'event left!'});
+  res.json({ message: 'event left!' });
 });
 
-async function eventLeaving(params:any) {
+async function eventLeaving(params: any) {
   console.log('--- eventLeaving function started ---');
-  console.log(params);
-  const result:any = await OpEvent.findOne({ event_id: params.event_id });
+  const result: any = await OpEvent.findOne({ event_id: params.event_id });
   if (params.user.gender === 'M') {
-    for (let i = 0; i < result.waiting_room.M.length; i ++) {
+    for (let i = 0; i < result.waiting_room.M.length; i++) {
       if (result.waiting_room.M[i].user_id === params.user.user_id) {
         const updatedArr = result.waiting_room.M.toSpliced(i, 1);
         const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: updatedArr, F: result.waiting_room.F } });
@@ -321,7 +229,7 @@ async function eventLeaving(params:any) {
       }
     }
   } else {
-    for (let i = 0; i < result.waiting_room.F.length; i ++) {
+    for (let i = 0; i < result.waiting_room.F.length; i++) {
       if (result.waiting_room.F[i].user_id === params.user.user_id) {
         const updatedArr = result.waiting_room.F.toSpliced(i, 1);
         const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: result.waiting_room.M, F: updatedArr } });
@@ -332,13 +240,11 @@ async function eventLeaving(params:any) {
   console.log('--- eventLeaving function ended ---');
 }
 
-app.put('/extend', async (req:any, res:any) => {
-  console.log('--- req.body of /extend api ---');
-  console.log(req.body);
-  console.log('--- req.body of /extend api ---');
-  const {user_id, dateRoomId, event_id} = req.body;
-  const result:any = await OpEvent.findOne({ event_id: event_id });
-  for (let i = 0; i < result.dating_room.length; i ++) {
+app.put('/extend', async (req: any, res: any) => {
+  console.log('---  /extend api started ---');
+  const { user_id, dateRoomId, event_id } = req.body;
+  const result: any = await OpEvent.findOne({ event_id: event_id });
+  for (let i = 0; i < result.dating_room.length; i++) {
     if (result.dating_room[i].dateRoomId === dateRoomId && !result.dating_room[i].extension.includes(user_id)) {
       const data = result.dating_room[i];
       const updatedArr = result.dating_room[i].extension;
@@ -351,36 +257,27 @@ app.put('/extend', async (req:any, res:any) => {
         io.to(dateRoomId).emit("clicked");
         // push to new column
         const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { matched: updatedArr.sort() } });
-        res.json({message: 'both party have extended'});
+        res.json({ message: 'both party have extended' });
       } else {
         io.to(dateRoomId).emit("extend_request", { user_id });
-        res.json({message: 'waiting for your partner'});
+        res.json({ message: 'waiting for your partner' });
       }
     }
   }
+  console.log('---  /extend api ended ---');
 });
 
-async function pairingFunction(user:any, event_id:any) {
-  console.log('----- Arguments of pairing function -----');
-  console.log(user, event_id);
-  console.log('----- Arguments of pairing function -----');
+async function pairingFunction(user: any, event_id: any) {
+  console.log('----- pairing function started -----');
   const user_id = user.user_id;
-  const result:any = await OpEvent.findOne({ event_id: event_id });
-  console.log('----- query result from database -----');
-  console.log(result);
-  console.log('----- query result from database -----');
+  let result: any = await OpEvent.findOne({ event_id: event_id });
   const interestedIn = user.interested;
-  console.log('interestedIn :', interestedIn);
   const interestedGenderArray = result.waiting_room[interestedIn];
-
-  console.log('----- interestedGenderArray -----');
-  console.log(interestedGenderArray);
-  console.log('----- interestedGenderArray -----');
 
   if (!result || interestedGenderArray.length === 0) return;
 
   let contFlag = false
-  
+
   for (let i = 0; i < interestedGenderArray.length; i++) {
 
     const selectedUser = interestedGenderArray[i];
@@ -394,27 +291,100 @@ async function pairingFunction(user:any, event_id:any) {
         break;
       }
     }
-    if(contFlag) continue;
+    if (contFlag) continue;
     if (selectedUser.interested === user.gender) {
 
       const dateRoomId = `${event_id}-${user_id}-${selectedUser.user_id}`;
       console.log("Match found:", user_id, selectedUser.user_id);
-      console.log('----- socket emission from pairing function -----');
-      console.log({
+
+      const socketEmission = {
         pair: [user_id, selectedUser.user_id].sort(),
         userData: [user, selectedUser],
         dateRoomId,
-      });
+      };
+
+      for (const x of socketEmission.userData) {
+        console.log('Removing from waiting room');
+        console.log(x);
+        let indexM, indexF;
+      
+        if (x.gender === "M") {
+          result.waiting_room.M.forEach((obj: any, index: any) => {
+            if (obj.user_id === x.user_id) {
+              indexM = index;
+            }
+          });
+          const updatedArrM = result.waiting_room.M.toSpliced(indexM, 1);
+          const updateResult = await OpEvent.findByIdAndUpdate(result._id, {
+            waiting_room: { M: updatedArrM, F: result.waiting_room.F }
+          });
+          result.waiting_room.M = updatedArrM;
+        } else {
+          result.waiting_room.F.forEach((obj: any, index: any) => {
+            if (obj.user_id === x.user_id) {
+              indexF = index;
+            }
+          });
+          const updatedArrF = result.waiting_room.F.toSpliced(indexF, 1);
+          const updateResult = await OpEvent.findByIdAndUpdate(result._id, {
+            waiting_room: { M: result.waiting_room.M, F: updatedArrF }
+          });
+          result.waiting_room.F = updatedArrF;
+        }
+      }
+      
+
+      if (result.dating_room.length === 0) {
+        const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [{...socketEmission, extension: []}] });
+      } else {
+        const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, {...socketEmission, extension: []}] });
+      }
+
+      //   let arr: any;
+
+      //   //add
+      //   let updateWithThisIndex = -1;
+      //   if (result.dating_room.length === 0) {
+      //     arr = { pair, dateRoomId, userData: [x], extension: [] };
+      //     //update full waiting room value
+      //     //remove from waiting
+      //     const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [arr] });
+      //   } else {
+      //     //rem
+      
+      //     result.dating_room.forEach((obj: any, index: any) => { //save index (index init at -1)
+      //       if (obj.pair.join() === pair.join()) {
+      //         obj.userData.push(x)
+      //         arr = obj;
+      //         updateWithThisIndex = index
+      //       }
+      //     })
+      
+      //     if (updateWithThisIndex === -1) {
+      //       //push
+      //       arr = { pair, dateRoomId, userData: [x], extension: [] };
+      //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, arr] });
+      //     } else {
+      //       //update full waiting room value
+      //       let updatedValue = result.dating_room
+      //       updatedValue[updateWithThisIndex] = arr
+      //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: updatedValue });
+      //     }
+      //   }
+      // });
+
+      const callHistoryArr = socketEmission.pair.sort();
+    const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
+
       console.log('----- socket emission from pairing function -----');
       // Emit match event to all users in the event room
-      io.to(event_id).emit("match_found", {
-        pair: [user_id, selectedUser.user_id].sort(),
-        userData: [user, selectedUser],
-        dateRoomId,
-      });
+      io.to(event_id).emit("match_found", {...socketEmission, timer: 30});
+      console.log(socketEmission);
+      console.log('----- socket emission from pairing function -----');
       return;
     }
   }
+  console.log('----- pairing function ended -----');
 }
 
 app.get("/", initialController);
@@ -443,5 +413,5 @@ app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
 
 server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
