@@ -50,13 +50,13 @@ io.on('connection', (socket: any) => {
 
   socket.on('join_event', (event_id: any) => {
     socket.join(event_id);
-    console.log(`User ${socket.id} joined event room ${event_id}`);
+    console.log(`Client ${socket.id} joined event room ${event_id}`);
   });
 
   socket.on("switch_room", ({ from, to }: any) => {
     socket.leave(from);
     socket.join(to);
-    console.log(`Socket ${socket.id} switched from ${from} to room ${to}`);
+    console.log(`Client ${socket.id} switched from ${from} to room ${to}`);
   });
 
   socket.on('disconnect', () => {
@@ -114,36 +114,36 @@ function hasTimePassedPlus3Hours(datetimeStr: any) {
 
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
+  const eventTime = "2025-04-12T23:00";
+
+  if (hasTimePassedPlus3Hours(eventTime).hasPassed) {
+    res.status(410).json({ message: "event ended!" });
+    return;
+  }
   let flag = false;
   const { event_id, user } = req.body;
   const result = await OpEvent.findOne({ event_id: event_id });
+  console.log(result);
   if (!result) {
     try {
-      const eventTime = hasTimePassedPlus3Hours("2025-04-11T15:00").adjustedTime;
-
-      if (hasTimePassedPlus3Hours("2025-04-11T15:00").hasPassed) {
-        res.status(410).json({ message: "event ended!" });
-        return;
-      }
-
       const data = {
         event_id: event_id,
-        event_time: eventTime,
+        event_time: hasTimePassedPlus3Hours(eventTime).adjustedTime,
         waiting_room: {
           M: user.gender === "M" ? [user] : [],
           F: user.gender === "F" ? [user] : []
         },
         dating_room: [],
         call_history: [],
+        matched: []
       };
       const insertedResult = await OpEvent.create(data);
-      res.send({ user_id: user.user_id, event_time: eventTime });
+      res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime).adjustedTime });
     } catch (error) {
       console.error(error);
       res.status(500).send('Server Error');
     }
   } else {
-    const resultNew = await OpEvent.findOne({ event_id: event_id });
     const genderArr = result.waiting_room[user.gender];
 
     for (let i = 0; i < genderArr.length; i++) {
@@ -156,7 +156,7 @@ async function eventJoining(req: any, res: any) {
       try {
         const updatedResult = await OpEvent.findOneAndUpdate(
           { event_id: event_id },
-          { $push: { [`waiting_room.${user.gender}`]: user } }, //
+          { $push: { [`waiting_room.${user.gender}`]: user } },
           { new: true }
         );
 
@@ -164,14 +164,15 @@ async function eventJoining(req: any, res: any) {
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
         console.error(error);
-        res.status(500).send('Server Error');
+        res.status(500).send('Server Error'); 
       }
+    } else {
+      res.status(409).json({message: "user already exists!!"});
     }
   }
   res.on('finish', () => {
     if (!flag) pairingFunction(user, event_id);
   });
-
   console.log('----- JOIN ENDED -----');
 }
 
@@ -286,7 +287,7 @@ async function pairingFunction(user: any, event_id: any) {
 
 
     for (let i = 0; i < result.call_history.length; i++) {
-      if (result.call_history[i].join() === [user.user_id, selectedUser.user_id].sort().join()) {
+      if (result.call_history[i].join() === [user_id, selectedUser.user_id].sort().join()) {
         contFlag = true
         break;
       }
@@ -340,40 +341,7 @@ async function pairingFunction(user: any, event_id: any) {
         const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, {...socketEmission, extension: []}] });
       }
 
-      //   let arr: any;
-
-      //   //add
-      //   let updateWithThisIndex = -1;
-      //   if (result.dating_room.length === 0) {
-      //     arr = { pair, dateRoomId, userData: [x], extension: [] };
-      //     //update full waiting room value
-      //     //remove from waiting
-      //     const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [arr] });
-      //   } else {
-      //     //rem
-      
-      //     result.dating_room.forEach((obj: any, index: any) => { //save index (index init at -1)
-      //       if (obj.pair.join() === pair.join()) {
-      //         obj.userData.push(x)
-      //         arr = obj;
-      //         updateWithThisIndex = index
-      //       }
-      //     })
-      
-      //     if (updateWithThisIndex === -1) {
-      //       //push
-      //       arr = { pair, dateRoomId, userData: [x], extension: [] };
-      //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, arr] });
-      //     } else {
-      //       //update full waiting room value
-      //       let updatedValue = result.dating_room
-      //       updatedValue[updateWithThisIndex] = arr
-      //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: updatedValue });
-      //     }
-      //   }
-      // });
-
-      const callHistoryArr = socketEmission.pair.sort();
+      const callHistoryArr = socketEmission.pair;
     const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
 
       console.log('----- socket emission from pairing function -----');
@@ -381,10 +349,10 @@ async function pairingFunction(user: any, event_id: any) {
       io.to(event_id).emit("match_found", {...socketEmission, timer: 30});
       console.log(socketEmission);
       console.log('----- socket emission from pairing function -----');
+      console.log('----- pairing function ended -----');
       return;
     }
   }
-  console.log('----- pairing function ended -----');
 }
 
 app.get("/", initialController);
