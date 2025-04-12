@@ -65,7 +65,7 @@ io.on('connection', (socket: any) => {
     const gender = socket.gender;
     const interested = socket.interested;
     console.log('Client disconnected:', socket.id);
-    disconnectUser(event_id, { user_id, gender, interested });
+    // disconnectUser(event_id, { user_id, gender, interested });
   });
 });
 
@@ -114,7 +114,7 @@ function hasTimePassedPlus3Hours(datetimeStr: any) {
 
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
-  const eventTime = "2025-04-12T23:00";
+  const eventTime = "2025-04-12T21:00";
 
   if (hasTimePassedPlus3Hours(eventTime).hasPassed) {
     res.status(410).json({ message: "event ended!" });
