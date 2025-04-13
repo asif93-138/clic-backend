@@ -46,26 +46,28 @@ io.on('connection', (socket: any) => {
   socket.user_id = user_id;
   socket.gender = gender;
   socket.interested = interested;
-  console.log('Client connected:', socket.id);
+  console.log('Client connected:', socket.gender);
 
-  socket.on('join_event', (event_id: any) => {
-    socket.join(event_id);
-    console.log(`Client ${socket.id} joined event room ${event_id}`);
-  });
+  // socket.on('join_event', (event_id: any) => {
+  //   socket.join(event_id);
+  //   console.log(`######### Client ${socket.gender} joined event room ${event_id}`);
+  // });
 
-  socket.on("switch_room", ({ from, to }: any) => {
-    socket.leave(from);
-    socket.join(to);
-    console.log(`Client ${socket.id} switched from ${from} to room ${to}`);
-  });
+  // socket.on("switch_room", ({ from, to }: any , callback: any) => {
+  //   socket.leave(from);
+  //   socket.join(to);
+  //   console.log(`Client ${socket.gender} switched from ${from} to room ${to}`);
+  //   // Call the callback to acknowledge the switch
+  //   if (callback) callback({ status: 'success' });
+  // });
 
   socket.on('disconnect', () => {
     const event_id = socket.event_id;
     const user_id = socket.user_id;
     const gender = socket.gender;
     const interested = socket.interested;
-    console.log('Client disconnected:', socket.id);
-    // disconnectUser(event_id, { user_id, gender, interested });
+    console.log('Client disconnected:', socket.gender);
+    disconnectUser(event_id, { user_id, gender, interested });
   });
 });
 
@@ -123,7 +125,7 @@ async function eventJoining(req: any, res: any) {
   let flag = false;
   const { event_id, user } = req.body;
   const result = await OpEvent.findOne({ event_id: event_id });
-  console.log(result);
+  // console.log(result);
   if (!result) {
     try {
       const data = {
@@ -203,7 +205,7 @@ async function leaveDatingRoom(event_id: any, user_id: any) {
       );
 
       // emit
-      io.to(data.dateRoomId).emit("has_left", "done!");
+      io.emit(`has_left:${data.dateRoomId}`);
 
       break;
     }
@@ -255,12 +257,12 @@ app.put('/extend', async (req: any, res: any) => {
       dataArr[i] = data;
       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: dataArr });
       if (updatedArr.length === 2) {
-        io.to(dateRoomId).emit("clicked");
+        io.emit(`clicked:${dateRoomId}`);
         // push to new column
         const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { matched: updatedArr.sort() } });
         res.json({ message: 'both party have extended' });
       } else {
-        io.to(dateRoomId).emit("extend_request", { user_id });
+        io.emit(`extend_request:${dateRoomId}`, { user_id });
         res.json({ message: 'waiting for your partner' });
       }
     }
@@ -295,7 +297,7 @@ async function pairingFunction(user: any, event_id: any) {
     if (contFlag) continue;
     if (selectedUser.interested === user.gender) {
 
-      const dateRoomId = `${event_id}-${user_id}-${selectedUser.user_id}`;
+      const dateRoomId = Math.random().toString(36).substring(2, 12);
       console.log("Match found:", user_id, selectedUser.user_id);
 
       const socketEmission = {
@@ -346,7 +348,8 @@ async function pairingFunction(user: any, event_id: any) {
 
       console.log('----- socket emission from pairing function -----');
       // Emit match event to all users in the event room
-      io.to(event_id).emit("match_found", {...socketEmission, timer: 30});
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer: 30});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer: 30});
       console.log(socketEmission);
       console.log('----- socket emission from pairing function -----');
       console.log('----- pairing function ended -----');
