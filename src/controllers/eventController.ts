@@ -56,6 +56,7 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
             const userObj:any = await User.findOne({ _id: req.user });
             const user = {user_id:req.user,
                 username: userObj.userName,
+                imgURL: userObj.imgURL,
                 gender:userObj.gender[0],
                 interested: userObj.gender[0] === 'M' ? "F" : "M" 
             }
