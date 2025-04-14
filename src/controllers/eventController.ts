@@ -146,7 +146,9 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
         if (dataObj_1.btnTxt === 'join') {
             dataObj_1.status = 'pending';
             dataObj_2.pending_members.push(dataObj_1.user_id);
+            console.log(dataObj_1);
             const insertResult = await eventUser.create(dataObj_1);
+            console.log(insertResult);
             const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
             if (insertResult._id && updatedResult && updatedResult._id) {
                 res.json({ btnTxt: 'pending' });
@@ -156,7 +158,11 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
         } else {
             dataObj_2.approved_members.splice(dataObj_2.approved_members.indexOf(dataObj_1.user_id), 1);
             const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
-            const deleteResult = await eventUser.deleteOne({ user_id: dataObj_1.user_id });
+            const deleteResult = await eventUser.deleteOne({ 
+                user_id: dataObj_1.user_id, 
+                event_id: dataObj_1.event_id 
+              });
+              
             if (updatedResult && updatedResult._id && deleteResult.acknowledged) {
                 res.json({ btnTxt: 'join' });
             }   else {
@@ -173,7 +179,10 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
         const dataObj_1 = req.body.firstObj;
         const dataObj_2 = req.body.secondObj;
         const dataObj_3 = req.body.thirdObj;
-        const eventUserResult = await eventUser.updateOne({ user_id: dataObj_1.user_id }, dataObj_2);
+        const eventUserResult = await eventUser.updateOne(
+            { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
+            { $set: dataObj_2 }
+          );          
         const eventResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_3);
         if (eventUserResult.acknowledged && eventResult && eventResult._id) {
             res.json({ message: "Successfully approved user!" });
