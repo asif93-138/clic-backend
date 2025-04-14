@@ -14,6 +14,7 @@ import interestsSearchController from "./controllers/interestsSearchController";
 import http from "http";
 import { Server } from "socket.io";
 import OpEvent from "./models/opEvents";
+import Event from "./models/event";
 
 dotenv.config();
 
@@ -82,7 +83,7 @@ app.post('/join', async (req, res) => {
   eventJoining(req, res);
 });
 
-function hasTimePassedPlus3Hours(datetimeStr: any) {
+export function hasTimePassedPlus3Hours(datetimeStr: any, duration:any ) {
   // Parse input string to local time
   const [datePart, timePart] = datetimeStr.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
@@ -92,7 +93,7 @@ function hasTimePassedPlus3Hours(datetimeStr: any) {
   const originalDate = new Date(year, month - 1, day, hour, minute);
 
   // Add 3 hours
-  const futureDate = new Date(originalDate.getTime() + 3 * 60 * 60 * 1000);
+  const futureDate = new Date(originalDate.getTime() + duration * 60 * 60 * 1000);
 
   // Format adjusted date to "YYYY-MM-DDTHH:mm"
   const formatDateLocal = (date: any) => {
@@ -116,21 +117,31 @@ function hasTimePassedPlus3Hours(datetimeStr: any) {
 
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
-  const eventTime = "2025-04-15T21:00";
+  const { event_id, user } = req.body;
+  const eventData = await Event.findOne({ _id: event_id });
+  if (!eventData) {
+    res.status(404).json({ message: "Event not found!" });
+    return;
+  }
+  if (!eventData.event_durations) {
+    res.status(404).json({ message: "Event durations not found!" });
+    return;
+  }
+  const eventTime = eventData.date_time;
 
-  if (hasTimePassedPlus3Hours(eventTime).hasPassed) {
+  if (hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).hasPassed) {
     res.status(410).json({ message: "event ended!" });
     return;
   }
   let flag = false;
-  const { event_id, user } = req.body;
+  
   const result = await OpEvent.findOne({ event_id: event_id });
   // console.log(result);
   if (!result) {
     try {
       const data = {
         event_id: event_id,
-        event_time: hasTimePassedPlus3Hours(eventTime).adjustedTime,
+        event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime,
         waiting_room: {
           M: user.gender === "M" ? [user] : [],
           F: user.gender === "F" ? [user] : []
@@ -140,7 +151,7 @@ async function eventJoining(req: any, res: any) {
         matched: []
       };
       const insertedResult = await OpEvent.create(data);
-      res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime).adjustedTime });
+      res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
     } catch (error) {
       console.error(error);
       res.status(500).send('Server Error');
@@ -173,7 +184,7 @@ async function eventJoining(req: any, res: any) {
     }
   }
   res.on('finish', () => {
-    if (!flag) pairingFunction(user, event_id);
+    if (!flag && eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[1]);
   });
   console.log('----- JOIN ENDED -----');
 }
@@ -270,7 +281,7 @@ app.put('/extend', async (req: any, res: any) => {
   console.log('---  /extend api ended ---');
 });
 
-async function pairingFunction(user: any, event_id: any) {
+async function pairingFunction(user: any, event_id: any, timer:any) {
   console.log('----- pairing function started -----');
   const user_id = user.user_id;
   let result: any = await OpEvent.findOne({ event_id: event_id });
@@ -348,8 +359,8 @@ async function pairingFunction(user: any, event_id: any) {
 
       console.log('----- socket emission from pairing function -----');
       // Emit match event to all users in the event room
-      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer: 30});
-      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer: 30});
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});
       console.log(socketEmission);
       console.log('----- socket emission from pairing function -----');
       console.log('----- pairing function ended -----');

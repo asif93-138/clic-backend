@@ -4,6 +4,7 @@ import fs from 'fs';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
 import User from '../models/user.model';
+import { hasTimePassedPlus3Hours } from '../server';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -40,11 +41,16 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 export async function getEventForApp(req: any, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
-        const result = await Event.findOne({ _id: req.params.id });
-        if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
-            const arr = [...result.pending_members, ...result.approved_members];
+        const resultOld = await Event.findOne({ _id: req.params.id });
+        if (resultOld && Array.isArray(resultOld.pending_members) && Array.isArray(resultOld.approved_members)) {
+            const arr = [...resultOld.pending_members, ...resultOld.approved_members];
             const users = await User.find({ _id: { $in: arr } });
+
+            const result: any = resultOld;
             
+            if (resultOld.event_durations && resultOld.event_durations.length > 0) {
+                result.event_end_time = hasTimePassedPlus3Hours(resultOld.date_time, resultOld.event_durations[0]).adjustedTime;
+            }
 
             // user obj
             const userObj:any = await User.findOne({ _id: req.user });
@@ -52,12 +58,11 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
                 username: userObj.userName,
                 gender:userObj.gender[0],
                 interested: userObj.gender[0] === 'M' ? "F" : "M" 
-
             }
 
-            if (result.pending_members.includes(req.user)) {
+            if (resultOld.pending_members.includes(req.user)) {
                 res.json({ members: users, result, btnTxt: 'pending', user });
-            } else if (result.approved_members.includes(req.user)) {
+            } else if (resultOld.approved_members.includes(req.user)) {
                 res.json({ members: users, result, btnTxt: 'cancel', user });
             } else {
                 res.json({ members: users, result, btnTxt: 'join', user });
@@ -114,6 +119,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         fs.unlinkSync(req.file.path);
 
         const dataObj = req.body;
+        dataObj.event_durations = JSON.parse(dataObj.event_durations);
         dataObj.imgURL = result.secure_url;
         const insertResult = await Event.create(dataObj);
         res.json(insertResult);
