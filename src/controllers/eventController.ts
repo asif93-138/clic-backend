@@ -146,9 +146,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
         if (dataObj_1.btnTxt === 'join') {
             dataObj_1.status = 'pending';
             dataObj_2.pending_members.push(dataObj_1.user_id);
-            console.log(dataObj_1);
             const insertResult = await eventUser.create(dataObj_1);
-            console.log(insertResult);
             const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
             if (insertResult._id && updatedResult && updatedResult._id) {
                 res.json({ btnTxt: 'pending' });
