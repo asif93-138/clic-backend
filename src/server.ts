@@ -151,6 +151,8 @@ async function eventJoining(req: any, res: any) {
         matched: []
       };
       const insertedResult = await OpEvent.create(data);
+      console.log('#############################');
+      console.log({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
       res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
     } catch (error) {
       console.error(error);
@@ -173,7 +175,8 @@ async function eventJoining(req: any, res: any) {
           { new: true }
         );
 
-
+        console.log('#############################');
+        console.log({ user_id: user.user_id, event_time: result.event_time });
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
         console.error(error);
