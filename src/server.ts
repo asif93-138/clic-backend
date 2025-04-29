@@ -49,18 +49,6 @@ io.on('connection', (socket: any) => {
   socket.interested = interested;
   console.log('Client connected:', socket.gender);
 
-  // socket.on('join_event', (event_id: any) => {
-  //   socket.join(event_id);
-  //   console.log(`######### Client ${socket.gender} joined event room ${event_id}`);
-  // });
-
-  // socket.on("switch_room", ({ from, to }: any , callback: any) => {
-  //   socket.leave(from);
-  //   socket.join(to);
-  //   console.log(`Client ${socket.gender} switched from ${from} to room ${to}`);
-  //   // Call the callback to acknowledge the switch
-  //   if (callback) callback({ status: 'success' });
-  // });
 
   socket.on('disconnect', () => {
     const event_id = socket.event_id;
@@ -136,7 +124,6 @@ async function eventJoining(req: any, res: any) {
   let flag = false;
   
   const result = await OpEvent.findOne({ event_id: event_id });
-  // console.log(result);
   if (!result) {
     try {
       const data = {
@@ -151,8 +138,6 @@ async function eventJoining(req: any, res: any) {
         matched: []
       };
       const insertedResult = await OpEvent.create(data);
-      console.log('#############################');
-      console.log({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
       res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
     } catch (error) {
       console.error(error);
@@ -174,9 +159,6 @@ async function eventJoining(req: any, res: any) {
           { $push: { [`waiting_room.${user.gender}`]: user } },
           { new: true }
         );
-
-        console.log('#############################');
-        console.log({ user_id: user.user_id, event_time: result.event_time });
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
         console.error(error);
@@ -217,7 +199,7 @@ async function leaveDatingRoom(event_id: any, user_id: any) {
         { event_id: event_id },
         { dating_room: updatedArr }
       );
-
+      console.log(`has_left:${data.dateRoomId}`);
       // emit
       io.emit(`has_left:${data.dateRoomId}`);
 
@@ -312,7 +294,6 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
     if (selectedUser.interested === user.gender) {
 
       const dateRoomId = Math.random().toString(36).substring(2, 12);
-      console.log("Match found:", user_id, selectedUser.user_id);
 
       const socketEmission = {
         pair: [user_id, selectedUser.user_id].sort(),
@@ -321,8 +302,6 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
       };
 
       for (const x of socketEmission.userData) {
-        console.log('Removing from waiting room');
-        console.log(x);
         let indexM, indexF;
       
         if (x.gender === "M") {
@@ -360,12 +339,12 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
       const callHistoryArr = socketEmission.pair;
     const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
 
-      console.log('----- socket emission from pairing function -----');
+     
       // Emit match event to all users in the event room
       io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
       io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});
-      console.log(socketEmission);
-      console.log('----- socket emission from pairing function -----');
+   
+     
       console.log('----- pairing function ended -----');
       return;
     }
