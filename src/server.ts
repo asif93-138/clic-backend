@@ -18,9 +18,11 @@ import Event from "./models/event";
 
 dotenv.config();
 
+// console.log(process.env.PORT);   || 5000
+
 const app = express();
 const server = http.createServer(app);
-const PORT = parseInt(process.env.PORT as string, 10) || 5000;
+const PORT = parseInt(process.env.PORT as string, 10);
 const upload = multer({ dest: 'uploads/' }); // Temporary storage before uploading to cloudinary
 
 // Middleware to parse JSON and URL-encoded request bodies
