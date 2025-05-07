@@ -6,8 +6,6 @@ export interface IEvent extends Document {
     description: string;
     date_time: string;
     location: string;
-    pending_members?: string[];
-    approved_members?: string[];
     event_durations?: number[];
     event_end_time: string;
 }
@@ -19,8 +17,6 @@ const EventSchema: Schema = new Schema(
         description: { type: String, required: true },
         date_time: { type: String, required: true },
         location: { type: String, required: true },
-        pending_members: { type: [String] },
-        approved_members: { type: [String] },
         event_durations: { type: [Number] },
         event_end_time: { type: String },
     },

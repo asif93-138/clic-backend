@@ -24,14 +24,32 @@ export async function getAllEvents(req: Request, res: Response): Promise<void> {
 
 export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
-        // Optional: Check if the database is accessible
-        const result = await Event.findOne({ _id: req.params.id });
-        if (result && Array.isArray(result.pending_members) && Array.isArray(result.approved_members)) {
-            const arr = [...result.pending_members, ...result.approved_members];
-            const users = await User.find({ _id: { $in: arr } });
+        const resultOld = await Event.findOne({ _id: req.params.id });
+        const newResult = await eventUser.find({ event_id: req.params.id });
+        const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
+        const pending_members: any = []; const approved_members: any = [];
+        newResult.forEach(x => {
+            if (x.status == 'approved') {
+                for (const y of users) {
+                    if (y._id == x.user_id) {
+                        approved_members.push(x.user_id);
+                        break;
+                    }
+                }
+            } else {
+                for (const y of users) {
+                    if (y._id == x.user_id) {
+                        pending_members.push(x.user_id);
+                        break;
+                    }
+                }
+            }
+        })
+        if (resultOld) {
+            const result: any = resultOld;
+            result.approved_members = approved_members;
+            result.pending_members = pending_members;
             res.json({ members: users, result });
-        } else {
-            res.json(result);
         }
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
@@ -40,19 +58,17 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 
 export async function getEventForApp(req: any, res: Response): Promise<void> {
     try {
-        // Optional: Check if the database is accessible
         const resultOld = await Event.findOne({ _id: req.params.id });
-        if (resultOld && Array.isArray(resultOld.pending_members) && Array.isArray(resultOld.approved_members)) {
-            const arr = [...resultOld.pending_members, ...resultOld.approved_members];
-            const users = await User.find({ _id: { $in: arr } });
 
+        const newResult = await eventUser.find({ event_id: req.params.id });
+        const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
             const result: any = resultOld;
             
-            if (resultOld.event_durations && resultOld.event_durations.length > 0) {
+            if (resultOld?.event_durations && resultOld.event_durations.length > 0) {
                 result.event_end_time = hasTimePassedPlus3Hours(resultOld.date_time, resultOld.event_durations[0]).adjustedTime;
             }
 
-            // user obj
+        
             const userObj:any = await User.findOne({ _id: req.user });
             const user = {user_id:req.user,
                 username: userObj.userName,
@@ -61,14 +77,25 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
                 interested: userObj.gender[0] === 'M' ? "F" : "M" 
             }
 
-            if (resultOld.pending_members.includes(req.user)) {
-                res.json({ members: users, result, btnTxt: 'pending', user });
-            } else if (resultOld.approved_members.includes(req.user)) {
-                res.json({ members: users, result, btnTxt: 'cancel', user });
-            } else {
+            let flag = true;
+
+            for (const x of newResult) {
+                if (x.user_id == req.user) {
+                    if (x.status == "approved") {
+                        res.json({ members: users, result, btnTxt: 'cancel', user });
+                    } else {
+                        res.json({ members: users, result, btnTxt: 'pending', user });
+                    }
+                    flag = false;
+                    break;
+                }
+            }
+
+            if (flag) {
                 res.json({ members: users, result, btnTxt: 'join', user });
             }
-        }
+
+
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -140,28 +167,23 @@ export async function getEventApplicationAndApproval(req: Request, res: Response
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
-        const {eventId, btnTxt, approved_members, pending_members, status} = req.body;
+        const {eventId, btnTxt, status} = req.body;
         const dataObj_1 = {event_id: eventId, user_id: req.user, btnTxt, status};
-        const dataObj_2 = {approved_members, pending_members};
         if (dataObj_1.btnTxt === 'join') {
             dataObj_1.status = 'pending';
-            dataObj_2.pending_members.push(dataObj_1.user_id);
             const insertResult = await eventUser.create(dataObj_1);
-            const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
-            if (insertResult._id && updatedResult && updatedResult._id) {
+            if (insertResult._id) {
                 res.json({ btnTxt: 'pending' });
             } else {
                 res.status(400).json({ message: "failed!" });
             }
         } else {
-            dataObj_2.approved_members.splice(dataObj_2.approved_members.indexOf(dataObj_1.user_id), 1);
-            const updatedResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_2);
             const deleteResult = await eventUser.deleteOne({ 
                 user_id: dataObj_1.user_id, 
                 event_id: dataObj_1.event_id 
               });
               
-            if (updatedResult && updatedResult._id && deleteResult.acknowledged) {
+            if (deleteResult.acknowledged) {
                 res.json({ btnTxt: 'join' });
             }   else {
                 res.status(400).json({ message: "failed!" });
