@@ -24,7 +24,7 @@ export async function getAllEvents(req: Request, res: Response): Promise<void> {
 
 export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
-        const resultOld = await Event.findOne({ _id: req.params.id });
+        const result = await Event.findOne({ _id: req.params.id });
         const newResult = await eventUser.find({ event_id: req.params.id });
         const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
         const pending_members: any = []; const approved_members: any = [];
@@ -45,12 +45,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                 }
             }
         })
-        if (resultOld) {
-            const result: any = resultOld;
-            result.approved_members = approved_members;
-            result.pending_members = pending_members;
-            res.json({ members: users, result });
-        }
+        res.json({ members: users, result, approved_members, pending_members });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -198,13 +193,11 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
     try {
         const dataObj_1 = req.body.firstObj;
         const dataObj_2 = req.body.secondObj;
-        const dataObj_3 = req.body.thirdObj;
         const eventUserResult = await eventUser.updateOne(
             { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
             { $set: dataObj_2 }
-          );          
-        const eventResult = await Event.findByIdAndUpdate(dataObj_1.event_id, dataObj_3);
-        if (eventUserResult.acknowledged && eventResult && eventResult._id) {
+          );
+        if (eventUserResult.acknowledged) {
             res.json({ message: "Successfully approved user!" });
         } else {
             res.status(400).json({ message: "failed!" });
