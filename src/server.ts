@@ -285,91 +285,71 @@ app.put('/extend', async (req: any, res: any) => {
 });
 
 async function pairingFunction(user: any, event_id: any, timer:any) {
-  // console.log('----- pairing function started -----');
-  // const user_id = user.user_id;
-  // // let result: any = await OpEvent.findOne({ event_id: event_id });
-  // // const genderArr = ;
-  // const interestedIn = user.interested;
-  // const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: user.interestedIn});
+  console.log('----- pairing function started -----');
+  const user_id = user.user_id;
+  const interestedIn = user.interested;
+  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: user.interestedIn});
 
-  // if (!interestedGenderArray || interestedGenderArray.length === 0) return;
+  if (!interestedGenderArray || interestedGenderArray.length === 0) return;
 
-  // let contFlag = false
+  let contFlag = false
 
-  // for (let i = 0; i < interestedGenderArray.length; i++) {
+  for (let i = 0; i < interestedGenderArray.length; i++) {
 
-  //   const selectedUser = interestedGenderArray[i];
+    const selectedUser = interestedGenderArray[i];
 
-  //   if (selectedUser.user_id === user_id) contFlag = true;
+    if (selectedUser.user_id === user_id) contFlag = true;
 
-  //   const userIdArray = [user_id, selectedUser.user_id].sort();
+    const userIdArray = [user_id, selectedUser.user_id].sort();
 
-  //   const call_history = await CallHistory.find({event_id: event_id, person_1: userIdArray[0], person_2: userIdArray[1]});
+    const call_history = await CallHistory.find({event_id: event_id, person_1: userIdArray[0], person_2: userIdArray[1]});
 
-  //     if (call_history[0].person_1 == userIdArray[0] && call_history[0].person_2 == userIdArray[1]) {
-  //       contFlag = true
-  //       break;
-  //     }
+      if (call_history[0].person_1 == userIdArray[0] && call_history[0].person_2 == userIdArray[1]) {
+        contFlag = true
+        break;
+      }
 
-  //   if (contFlag) continue;
-  //   if (selectedUser.interested === user.gender) {
+    if (contFlag) continue;
+    if (selectedUser.interested === user.gender) {
 
-  //     const dateRoomId = Math.random().toString(36).substring(2, 12);
+      const dateRoomId = Math.random().toString(36).substring(2, 12);
 
-  //     const socketEmission = {
-  //       pair: [user_id, selectedUser.user_id].sort(),
-  //       userData: [user, selectedUser],
-  //       dateRoomId,
-  //     };
+      const socketEmission = {
+        pair: [user_id, selectedUser.user_id].sort(),
+        userData: [user, selectedUser],
+        dateRoomId,
+      };
 
-  //     for (const x of socketEmission.userData) {
-  //       let indexM, indexF;
+      const deletePersonOne = await WaitingRoom.deleteOne({ user_id: userIdArray[0], event_id: event_id });
+      const deletePersonTwo = await WaitingRoom.deleteOne({ user_id: userIdArray[1], event_id: event_id });
       
-  //       if (x.gender === "M") {
-  //         result.waiting_room.M.forEach((obj: any, index: any) => {
-  //           if (obj.user_id === x.user_id) {
-  //             indexM = index;
-  //           }
-  //         });
-  //         const updatedArrM = result.waiting_room.M.toSpliced(indexM, 1);
-  //         const updateResult = await OpEvent.findByIdAndUpdate(result._id, {
-  //           waiting_room: { M: updatedArrM, F: result.waiting_room.F }
-  //         });
-  //         result.waiting_room.M = updatedArrM;
-  //       } else {
-  //         result.waiting_room.F.forEach((obj: any, index: any) => {
-  //           if (obj.user_id === x.user_id) {
-  //             indexF = index;
-  //           }
-  //         });
-  //         const updatedArrF = result.waiting_room.F.toSpliced(indexF, 1);
-  //         const updateResult = await OpEvent.findByIdAndUpdate(result._id, {
-  //           waiting_room: { M: result.waiting_room.M, F: updatedArrF }
-  //         });
-  //         result.waiting_room.F = updatedArrF;
-  //       }
-  //     }
-      
+      const dateRoomData = {
+        event_id: event_id,
+        ...socketEmission,
+        extension: []
+      };
 
-  //     if (result.dating_room.length === 0) {
-  //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [{...socketEmission, extension: []}] });
-  //     } else {
-  //       const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, {...socketEmission, extension: []}] });
-  //     }
+      // const  = ;
 
-  //     const callHistoryArr = socketEmission.pair;
-  //   const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
+      // if (result.dating_room.length === 0) {
+      //   const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [{...socketEmission, extension: []}] });
+      // } else {
+      //   const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, {...socketEmission, extension: []}] });
+      // }
+
+      const callHistoryArr = socketEmission.pair;
+    // const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
 
      
-  //     // Emit match event to all users in the event room
-  //     io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
-  //     io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});
+      // Emit match event to all users in the event room
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});
    
      
-  //     console.log('----- pairing function ended -----');
-  //     return;
-  //   }
-  // }
+      console.log('----- pairing function ended -----');
+      return;
+    }
+  }
 }
 
 app.get("/", initialController);
