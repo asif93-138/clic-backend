@@ -15,6 +15,8 @@ import http from "http";
 import { Server } from "socket.io";
 import OpEvent from "./models/opEvents";
 import Event from "./models/event";
+import WaitingRoom from "./models/waitingRoom";
+import CallHistory from "./models/callHistory";
 
 dotenv.config();
 
@@ -128,25 +130,37 @@ async function eventJoining(req: any, res: any) {
   const result = await OpEvent.findOne({ event_id: event_id });
   if (!result) {
     try {
-      const data = {
+      // const data = {
+      //   event_id: event_id,
+      //   event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime,
+      //   waiting_room: {
+      //     M: user.gender === "M" ? [user] : [],
+      //     F: user.gender === "F" ? [user] : []
+      //   },
+      //   dating_room: [],
+      //   call_history: [],
+      //   matched: []
+      // };
+      const data_1 = {
         event_id: event_id,
-        event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime,
-        waiting_room: {
-          M: user.gender === "M" ? [user] : [],
-          F: user.gender === "F" ? [user] : []
-        },
-        dating_room: [],
-        call_history: [],
-        matched: []
+        event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime
       };
-      const insertedResult = await OpEvent.create(data);
+      const data_2 = {
+        event_id: event_id,
+        user_id: user.user_id,
+        gender: user.gender,
+        interested: user.interested,
+      };
+      const insertedResult_1 = await OpEvent.create(data_1); 
+      const insertedResult_2 = await WaitingRoom.create(data_2);
       res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
     } catch (error) {
       console.error(error);
       res.status(500).send('Server Error');
     }
   } else {
-    const genderArr = result.waiting_room[user.gender];
+
+    const genderArr = await WaitingRoom.find({event_id: event_id, gender: user.gender});
 
     for (let i = 0; i < genderArr.length; i++) {
       if (genderArr[i].user_id === user.user_id) {
@@ -156,11 +170,13 @@ async function eventJoining(req: any, res: any) {
     }
     if (!flag) {
       try {
-        const updatedResult = await OpEvent.findOneAndUpdate(
-          { event_id: event_id },
-          { $push: { [`waiting_room.${user.gender}`]: user } },
-          { new: true }
-        );
+        const data = {
+          event_id: event_id,
+          user_id: user.user_id,
+          gender: user.gender,
+          interested: user.interested,
+        };
+        const insertedResult = await WaitingRoom.create(data);
         res.send({ user_id: user.user_id, event_time: result.event_time });
       } catch (error) {
         console.error(error);
@@ -271,11 +287,12 @@ app.put('/extend', async (req: any, res: any) => {
 async function pairingFunction(user: any, event_id: any, timer:any) {
   console.log('----- pairing function started -----');
   const user_id = user.user_id;
-  let result: any = await OpEvent.findOne({ event_id: event_id });
+  // let result: any = await OpEvent.findOne({ event_id: event_id });
+  // const genderArr = ;
   const interestedIn = user.interested;
-  const interestedGenderArray = result.waiting_room[interestedIn];
+  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: user.interestedIn});
 
-  if (!result || interestedGenderArray.length === 0) return;
+  if (!interestedGenderArray || interestedGenderArray.length === 0) return;
 
   let contFlag = false
 
@@ -285,13 +302,15 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
 
     if (selectedUser.user_id === user_id) contFlag = true;
 
+    const userIdArray = [user_id, selectedUser.user_id].sort();
 
-    for (let i = 0; i < result.call_history.length; i++) {
-      if (result.call_history[i].join() === [user_id, selectedUser.user_id].sort().join()) {
+    const call_history = await CallHistory.find({event_id: event_id, person_1: userIdArray[0], person_2: userIdArray[1]});
+
+      if (call_history[0].person_1 == userIdArray[0] && call_history[0].person_2 == userIdArray[1]) {
         contFlag = true
         break;
       }
-    }
+
     if (contFlag) continue;
     if (selectedUser.interested === user.gender) {
 
