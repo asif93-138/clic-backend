@@ -57,38 +57,39 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
 
         const newResult = await eventUser.find({ event_id: req.params.id });
         const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
-            const result: any = resultOld;
-            
-            if (resultOld?.event_durations && resultOld.event_durations.length > 0) {
-                result.event_end_time = hasTimePassedPlus3Hours(resultOld.date_time, resultOld.event_durations[0]).adjustedTime;
-            }
+        const result: any = resultOld;
 
-        
-            const userObj:any = await User.findOne({ _id: req.user });
-            const user = {user_id:req.user,
-                username: userObj.userName,
-                imgURL: userObj.imgURL,
-                gender:userObj.gender[0],
-                interested: userObj.gender[0] === 'M' ? "F" : "M" 
-            }
+        if (resultOld?.event_durations && resultOld.event_durations.length > 0) {
+            result.event_end_time = hasTimePassedPlus3Hours(resultOld.date_time, resultOld.event_durations[0]).adjustedTime;
+        }
 
-            let flag = true;
 
-            for (const x of newResult) {
-                if (x.user_id == req.user) {
-                    if (x.status == "approved") {
-                        res.json({ members: users, result, btnTxt: 'cancel', user });
-                    } else {
-                        res.json({ members: users, result, btnTxt: 'pending', user });
-                    }
-                    flag = false;
-                    break;
+        const userObj: any = await User.findOne({ _id: req.user });
+        const user = {
+            user_id: req.user,
+            username: userObj.userName,
+            imgURL: userObj.imgURL,
+            gender: userObj.gender[0],
+            interested: userObj.gender[0] === 'M' ? "F" : "M"
+        }
+
+        let flag = true;
+
+        for (const x of newResult) {
+            if (x.user_id == req.user) {
+                if (x.status == "approved") {
+                    res.json({ members: users, result, btnTxt: 'cancel', user });
+                } else {
+                    res.json({ members: users, result, btnTxt: 'pending', user });
                 }
+                flag = false;
+                break;
             }
+        }
 
-            if (flag) {
-                res.json({ members: users, result, btnTxt: 'join', user });
-            }
+        if (flag) {
+            res.json({ members: users, result, btnTxt: 'join', user });
+        }
 
 
     } catch (error) {
@@ -97,8 +98,54 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
 }
 
 export async function getUserPool(req: any, res: Response): Promise<void> {
+
+    const userId = req.user;
+    const page = 0;
+    const limit = 10;
+
     try {
-        let arr_1: any[] = [], arr_2: any[] = [], arr_3: any[] = [];
+
+        const upcomingEvents = await Event.aggregate([
+            // 1. Left join EventUser docs for only this user
+            {
+                $lookup: {
+                    from: "eventusers", // <- collection name from MongoDB, lowercase plural
+                    let: { eventId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$event_id", { $toString: "$$eventId" }] }, // convert ObjectId to string match
+                                        { $eq: ["$user_id", userId] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "userStatus"
+                }
+            },
+
+            // 2. Only include events where:
+            // - No userStatus (i.e., not joined at all)
+            // - OR joined and status !== "approved"
+            {
+                $match: {
+                    $or: [
+                        { userStatus: { $eq: [] } },
+                        { "userStatus.status": { $ne: "approved" } }
+                    ]
+                }
+            },
+
+            // 3. Optional sort + pagination
+            { $sort: { _id: 1 } }, // or date_time if you want chronological
+            { $skip: page * limit },
+            { $limit: limit }
+        ]);
+
+        let arr_1: any[] = [], arr_2: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
         userResult.forEach((element: any) => {
             if (element.status === "pending") {
@@ -115,15 +162,8 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
             const approvedResult = await Event.find({ _id: { $in: arr_2 } });
             arr_2 = approvedResult;
         }
-        const upcomingResult = await Event.find()
-            .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
-            // .limit(10); // Limit to the latest 10 documents
 
-        upcomingResult.forEach(x => {
-            !arr_2.includes(x._id) && arr_3.push(x);
-        })
-
-        res.json({ pending: arr_1, approved: arr_2, upcoming: arr_3 });
+        res.json({ pending: arr_1, approved: arr_2, upcoming: upcomingEvents });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -166,8 +206,8 @@ export async function getEventApplicationAndApproval(req: Request, res: Response
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
-        const {eventId, btnTxt, status} = req.body;
-        const dataObj_1 = {event_id: eventId, user_id: req.user, btnTxt, status};
+        const { eventId, btnTxt, status } = req.body;
+        const dataObj_1 = { event_id: eventId, user_id: req.user, btnTxt, status };
         if (dataObj_1.btnTxt === 'join') {
             dataObj_1.status = 'pending';
             const insertResult = await eventUser.create(dataObj_1);
@@ -177,14 +217,14 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                 res.status(400).json({ message: "failed!" });
             }
         } else {
-            const deleteResult = await eventUser.deleteOne({ 
-                user_id: dataObj_1.user_id, 
-                event_id: dataObj_1.event_id 
-              });
-              
+            const deleteResult = await eventUser.deleteOne({
+                user_id: dataObj_1.user_id,
+                event_id: dataObj_1.event_id
+            });
+
             if (deleteResult.acknowledged) {
                 res.json({ btnTxt: 'join' });
-            }   else {
+            } else {
                 res.status(400).json({ message: "failed!" });
             }
         }
@@ -200,7 +240,7 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
         const eventUserResult = await eventUser.updateOne(
             { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
             { $set: dataObj_2 }
-          );
+        );
         if (eventUserResult.acknowledged) {
             res.json({ message: "Successfully approved user!" });
         } else {
