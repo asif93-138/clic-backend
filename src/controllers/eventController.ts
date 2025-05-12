@@ -134,13 +134,13 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
                 $match: {
                     $or: [
                         { userStatus: { $eq: [] } },
-                        { "userStatus.status": { $ne: "approved" } }
+                        // { "userStatus.status": { $ne: "approved" } }
                     ]
                 }
             },
 
             // 3. Optional sort + pagination
-            { $sort: { _id: 1 } }, // or date_time if you want chronological
+            { $sort: { createdAt: 1 } }, // or date_time if you want chronological
             { $skip: page * limit },
             { $limit: limit }
         ]);
@@ -155,11 +155,11 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
             }
         });
         if (arr_1.length > 0) {
-            const pendingResult = await Event.find({ _id: { $in: arr_1 } });
+            const pendingResult = await Event.find({ _id: { $in: arr_1 }  }).sort({ _id: 1 });
             arr_1 = pendingResult;
         }
         if (arr_2.length > 0) {
-            const approvedResult = await Event.find({ _id: { $in: arr_2 } });
+            const approvedResult = await Event.find({ _id: { $in: arr_2 } }).sort({ _id: 1 });
             arr_2 = approvedResult;
         }
 
