@@ -98,7 +98,7 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
 
 export async function getUserPool(req: any, res: Response): Promise<void> {
     try {
-        let arr_1: any[] = [], arr_2: any[] = [];
+        let arr_1: any[] = [], arr_2: any[] = [], arr_3: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
         userResult.forEach((element: any) => {
             if (element.status === "pending") {
@@ -117,9 +117,13 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
         }
         const upcomingResult = await Event.find()
             .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
-            .limit(10); // Limit to the latest 10 documents
+            // .limit(10); // Limit to the latest 10 documents
 
-        res.json({ pending: arr_1, approved: arr_2, upcoming: upcomingResult });
+        upcomingResult.forEach(x => {
+            !arr_2.includes(x._id) && arr_3.push(x);
+        })
+
+        res.json({ pending: arr_1, approved: arr_2, upcoming: arr_3 });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
