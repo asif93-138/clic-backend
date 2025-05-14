@@ -17,6 +17,8 @@ import OpEvent from "./models/opEvents";
 import Event from "./models/event";
 import WaitingRoom from "./models/waitingRoom";
 import CallHistory from "./models/callHistory";
+import DatingRoom from "./models/datingRoom";
+import Matched from "./models/matched";
 
 dotenv.config();
 
@@ -130,17 +132,6 @@ async function eventJoining(req: any, res: any) {
   const result = await OpEvent.findOne({ event_id: event_id });
   if (!result) {
     try {
-      // const data = {
-      //   event_id: event_id,
-      //   event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime,
-      //   waiting_room: {
-      //     M: user.gender === "M" ? [user] : [],
-      //     F: user.gender === "F" ? [user] : []
-      //   },
-      //   dating_room: [],
-      //   call_history: [],
-      //   matched: []
-      // };
       const data_1 = {
         event_id: event_id,
         event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime
@@ -203,20 +194,21 @@ app.put('/leaveDatingRoom', async (req, res) => {
 
 async function leaveDatingRoom(event_id: any, user_id: any) {
   console.log('----- leaveDatingRoom function started -----');
-  const result: any = await OpEvent.findOne({ event_id: event_id });
+  const result: any = await DatingRoom.find({ event_id: event_id });
   let data;
   //conditional
-  for (let i = 0; i < result.dating_room.length; i++) {
-    if (result.dating_room[i].pair.includes(user_id)) {
+  for (let i = 0; i < result.length; i++) {
+    if (result[i].pair.includes(user_id)) {
       console.log(`[CONNECTED] User ${user_id} leaving dating_room at index ${i} and will join waiting_room`);
-      data = result.dating_room[i];
+      data = result[i];
       // leaveDating and joinWaiting logic here
-      const updatedArr = result.dating_room.toSpliced(i, 1);
+      // const updatedArr = result.toSpliced(i, 1);
 
-      const updatedResult = await OpEvent.findOneAndUpdate(
-        { event_id: event_id },
-        { dating_room: updatedArr }
-      );
+      // const updatedResult = await OpEvent.findOneAndUpdate(
+      //   { event_id: event_id },
+      //   { dating_room: updatedArr }
+      // );
+      await DatingRoom.findByIdAndDelete(data._id);
       console.log(`has_left:${data.dateRoomId}`);
       // emit
       io.emit(`has_left:${data.dateRoomId}`);
@@ -224,8 +216,6 @@ async function leaveDatingRoom(event_id: any, user_id: any) {
       break;
     }
   }
-  // call [join - pairing - if pair match
-  // response
   console.log('----- leaveDatingRoom function ended -----');
 }
 
@@ -236,51 +226,35 @@ app.delete("/leave_event", async (req, res) => {
 
 async function eventLeaving(params: any) {
   console.log('--- eventLeaving function started ---');
-  const result: any = await OpEvent.findOne({ event_id: params.event_id });
-  if (params.user.gender === 'M') {
-    for (let i = 0; i < result.waiting_room.M.length; i++) {
-      if (result.waiting_room.M[i].user_id === params.user.user_id) {
-        const updatedArr = result.waiting_room.M.toSpliced(i, 1);
-        const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: updatedArr, F: result.waiting_room.F } });
-        return;
-      }
-    }
-  } else {
-    for (let i = 0; i < result.waiting_room.F.length; i++) {
-      if (result.waiting_room.F[i].user_id === params.user.user_id) {
-        const updatedArr = result.waiting_room.F.toSpliced(i, 1);
-        const updateResult = await OpEvent.findByIdAndUpdate(result._id, { waiting_room: { M: result.waiting_room.M, F: updatedArr } });
-        return;
-      }
-    }
-  }
+  await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
   console.log('--- eventLeaving function ended ---');
 }
 
 app.put('/extend', async (req: any, res: any) => {
   console.log('---  /extend api started ---');
   const { user_id, dateRoomId, event_id } = req.body;
-  const result: any = await OpEvent.findOne({ event_id: event_id });
-  for (let i = 0; i < result.dating_room.length; i++) {
-    if (result.dating_room[i].dateRoomId === dateRoomId && !result.dating_room[i].extension.includes(user_id)) {
-      const data = result.dating_room[i];
-      const updatedArr = result.dating_room[i].extension;
+  const result: any = await DatingRoom.findOne({ event_id: event_id, dateRoomId: dateRoomId });
+
+    if (!result.extension.includes(user_id)) {
+      const data = result;
+      const updatedArr = result.extension;
       updatedArr.push(user_id);
-      data.extension = updatedArr;
-      const dataArr = result.dating_room;
-      dataArr[i] = data;
-      const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: dataArr });
+      const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {extension: updatedArr});
       if (updatedArr.length === 2) {
         io.emit(`clicked:${dateRoomId}`);
-        // push to new column
-        const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { matched: updatedArr.sort() } });
+        updatedArr.sort()
+        const updateResult = await Matched.create({
+          event_id: event_id,
+          person_1: updatedArr[0],
+          person_2: updatedArr[1],
+        });
         res.json({ message: 'both party have extended' });
       } else {
         io.emit(`extend_request:${dateRoomId}`, { user_id });
         res.json({ message: 'waiting for your partner' });
       }
     }
-  }
+  
   console.log('---  /extend api ended ---');
 });
 
@@ -329,17 +303,14 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
         extension: []
       };
 
-      // const  = ;
+      const insertDateRoomData = await DatingRoom.create(dateRoomData);
 
-      // if (result.dating_room.length === 0) {
-      //   const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [{...socketEmission, extension: []}] });
-      // } else {
-      //   const updateResult = await OpEvent.findByIdAndUpdate(result._id, { dating_room: [...result.dating_room, {...socketEmission, extension: []}] });
-      // }
-
-      const callHistoryArr = socketEmission.pair;
-    // const updateResult = await OpEvent.findByIdAndUpdate(result._id, { $push: { call_history: callHistoryArr } });
-
+      const callHistoryData = {
+        event_id: event_id,
+        person_1: socketEmission.pair[0],
+        person_2: socketEmission.pair[1],
+      };
+      const insertCHData = await CallHistory.create(callHistoryData);
      
       // Emit match event to all users in the event room
       io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
