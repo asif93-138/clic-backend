@@ -101,49 +101,50 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
 
     const userId = req.user;
     const page = 0;
-    const limit = 10;
+    const limit = 100;
 
     try {
-
-        const upcomingEvents = await Event.aggregate([
-            // 1. Left join EventUser docs for only this user
-            {
-                $lookup: {
-                    from: "eventusers", // <- collection name from MongoDB, lowercase plural
-                    let: { eventId: "$_id" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [
-                                        { $eq: ["$event_id", { $toString: "$$eventId" }] }, // convert ObjectId to string match
-                                        { $eq: ["$user_id", userId] }
-                                    ]
-                                }
-                            }
+const upcomingEvents = await Event.aggregate([
+    {
+        $lookup: {
+            from: "eventusers",
+            let: { eventId: "$_id" },
+            pipeline: [
+                {
+                    $match: {
+                        $expr: {
+                            $and: [
+                                { $eq: ["$event_id", { $toString: "$$eventId" }] },
+                                { $eq: ["$user_id", userId] }
+                            ]
                         }
-                    ],
-                    as: "userStatus"
+                    }
                 }
-            },
-
-            // 2. Only include events where:
-            // - No userStatus (i.e., not joined at all)
-            // - OR joined and status !== "approved"
-            {
-                $match: {
-                    $or: [
-                        { userStatus: { $eq: [] } },
-                        // { "userStatus.status": { $ne: "approved" } }
-                    ]
+            ],
+            as: "userStatus"
+        }
+    },
+    {
+        $match: {
+            $expr: {
+                $not: {
+                    $in: ["approved", "$userStatus.status"]
                 }
-            },
-
-            // 3. Optional sort + pagination
-            { $sort: { createdAt: 1 } }, // or date_time if you want chronological
-            { $skip: page * limit },
-            { $limit: limit }
-        ]);
+            }
+        }
+    },
+    {
+        $project: {
+            title: 1,
+            imgURL: 1,
+            date_time: 1,
+            userStatus: 1
+        }
+    },
+    { $sort: { createdAt: 1 } },
+    { $skip: page * limit },
+    { $limit: limit }
+]);
 
         let arr_1: any[] = [], arr_2: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
@@ -155,11 +156,11 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
             }
         });
         if (arr_1.length > 0) {
-            const pendingResult = await Event.find({ _id: { $in: arr_1 }  }).sort({ _id: 1 });
+            const pendingResult = await Event.find({ _id: { $in: arr_1 } }, 'title imgURL date_time').sort({ _id: 1 });
             arr_1 = pendingResult;
         }
         if (arr_2.length > 0) {
-            const approvedResult = await Event.find({ _id: { $in: arr_2 } }).sort({ _id: 1 });
+            const approvedResult = await Event.find({ _id: { $in: arr_2 } }, 'title imgURL date_time').sort({ _id: 1 });
             arr_2 = approvedResult;
         }
 

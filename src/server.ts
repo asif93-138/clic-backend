@@ -262,8 +262,8 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
   console.log('----- pairing function started -----');
   const user_id = user.user_id;
   const interestedIn = user.interested;
-  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: user.interestedIn});
-
+  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interestedIn});
+  
   if (!interestedGenderArray || interestedGenderArray.length === 0) return;
 
   let contFlag = false
@@ -278,7 +278,7 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
 
     const call_history = await CallHistory.find({event_id: event_id, person_1: userIdArray[0], person_2: userIdArray[1]});
 
-      if (call_history[0].person_1 == userIdArray[0] && call_history[0].person_2 == userIdArray[1]) {
+      if (call_history[0]?.person_1 == userIdArray[0] && call_history[0]?.person_2 == userIdArray[1]) {
         contFlag = true
         break;
       }
