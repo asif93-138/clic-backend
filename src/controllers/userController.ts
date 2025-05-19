@@ -93,15 +93,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
-        });
-
-        // Delete the file from local storage
-        fs.unlinkSync(req.file.path);
         const dataObj = req.body;
-        dataObj.imgURL = result.secure_url;
+        dataObj.imgURL = "uploads/" + req.file.filename;
         const hashedPassword = await bcrypt.hash(dataObj.password, 10);
         dataObj.password = hashedPassword;
         const newUser = new User(dataObj);

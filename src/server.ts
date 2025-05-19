@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import multer from 'multer';
+import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile } from "./controllers/userController";
@@ -19,6 +20,7 @@ import WaitingRoom from "./models/waitingRoom";
 import CallHistory from "./models/callHistory";
 import DatingRoom from "./models/datingRoom";
 import Matched from "./models/matched";
+import { upload } from "./middleware/multerConfig";
 
 dotenv.config();
 
@@ -27,7 +29,6 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT as string, 10);
-const upload = multer({ dest: 'uploads/' }); // Temporary storage before uploading to cloudinary
 
 // Middleware to parse JSON and URL-encoded request bodies
 app.use(express.json());
@@ -324,6 +325,7 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
 }
 
 app.get("/", initialController);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.get("/users", authMiddleware, getAllUsers);
 app.get("/user", authMiddleware, getUser);
 app.get("/userProfilePicture", authMiddleware, getUserPP);

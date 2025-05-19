@@ -207,7 +207,7 @@ const upcomingEvents = await Event.aggregate([
       createdAt: 1,
     },
   },
-  { $sort: { createdAt: 1 } },
+  { $sort: { createdAt: -1 } },
   { $skip: page * limit },
   { $limit: limit },
 ]);
@@ -231,7 +231,7 @@ const upcomingEvents = await Event.aggregate([
   date_time: {
     $gte: new Date(new Date().setDate(new Date().getDate() - 200)).toISOString()
   }
-}, 'title imgURL date_time event_durations').sort({ _id: 1 }).lean();
+}, 'title imgURL date_time event_durations').sort({ createdAt: -1 }).lean();
             const filteredArr: any[] = [];
             approvedResult.forEach((x:any) => {
                 x.userStatus = "approved";
@@ -262,18 +262,11 @@ export async function createEvent(req: any, res: Response): Promise<void> {
             res.status(400).json({ message: 'No file uploaded' });
             return;
         }
-
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
-        });
-
-        // Delete the file from local storage
-        fs.unlinkSync(req.file.path);
-
+        // http://localhost:5000/uploads/1747643112457-930576226.jpg
+       
         const dataObj = req.body;
         dataObj.event_durations = JSON.parse(dataObj.event_durations);
-        dataObj.imgURL = result.secure_url;
+        dataObj.imgURL = "uploads/" + req.file.filename;
         const insertResult = await Event.create(dataObj);
         res.json(insertResult);
     } catch (error) {
