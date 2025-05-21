@@ -363,3 +363,14 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
         console.error("Error connecting to MongoDB:", error);
     }
 }
+
+export async function eventUserStatus(req: any, res: Response): Promise<void> {
+    try {
+        const event_id = req.body;
+        const user_id = req.user;
+        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id });
+        res.json(eventUserResult);
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}

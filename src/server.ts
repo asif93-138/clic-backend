@@ -8,7 +8,7 @@ import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -339,6 +339,7 @@ app.get("/cities", citiesSearchController);
 app.get("/interests", interestsSearchController);
 app.get("/userPools", authMiddleware, getUserPool);
 app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplicationAndApproval);
+app.get("/eventUserStatus", authMiddleware, eventUserStatus);
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
