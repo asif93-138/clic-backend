@@ -342,16 +342,16 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
         }
 
         if (req.file) {
-            // Upload to Cloudinary
-            const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
-                folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
-            });
+            // // Upload to Cloudinary
+            // const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
+            //     folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
+            // });
 
-            // Delete the file from local storage
-            fs.unlinkSync(req.file.path);
+            // // Delete the file from local storage
+            // fs.unlinkSync(req.file.path);
 
             const dataObj = req.body;
-            dataObj.imgURL = cloudinaryRes.secure_url;
+            dataObj.imgURL = "uploads/" + req.file.filename;
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
             res.json(result);
         } else {
