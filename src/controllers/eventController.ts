@@ -342,13 +342,14 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
         }
 
         if (req.file) {
+            // console.log(req.file);
             // // Upload to Cloudinary
             // const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
             //     folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
             // });
 
-            // // Delete the file from local storage
-            // fs.unlinkSync(req.file.path);
+            // Delete previous file from local storage
+            fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
 
             const dataObj = req.body;
             dataObj.imgURL = "uploads/" + req.file.filename;
@@ -366,10 +367,10 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
 
 export async function eventUserStatus(req: any, res: Response): Promise<void> {
     try {
-        const event_id = req.body;
+        const event_id = req.body.event_id;
         const user_id = req.user;
-        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id });
-        res.json(eventUserResult);
+        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
+        res.json({status: eventUserResult?.status});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
