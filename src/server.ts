@@ -54,7 +54,7 @@ io.on('connection', (socket: any) => {
   socket.user_id = user_id;
   socket.gender = gender;
   socket.interested = interested;
-  console.log('Client connected:', socket.gender);
+  console.log('Client connected:', socket.handshake.query);
 
 
   socket.on('disconnect', () => {
@@ -62,7 +62,7 @@ io.on('connection', (socket: any) => {
     const user_id = socket.user_id;
     const gender = socket.gender;
     const interested = socket.interested;
-    console.log('Client disconnected:', socket.gender);
+    console.log('Client disconnected:', socket.handshake.query);
     disconnectUser(event_id, { user_id, gender, interested });
   });
 });

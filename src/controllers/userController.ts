@@ -20,7 +20,9 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
         const users = await User.find({}, { password: 0 });
-        res.json(users);
+        const usersP = await User.find({approved: "pending"}, { password: 0 });
+        const usersA = await User.find({approved: "approved"}, { password: 0 });
+        res.json({users, usersP, usersA});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
