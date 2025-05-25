@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import multer from 'multer';
 import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
@@ -21,6 +20,7 @@ import CallHistory from "./models/callHistory";
 import DatingRoom from "./models/datingRoom";
 import Matched from "./models/matched";
 import { upload } from "./middleware/multerConfig";
+import User from "./models/user.model";
 
 dotenv.config();
 
@@ -289,9 +289,15 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
 
       const dateRoomId = Math.random().toString(36).substring(2, 12);
 
+      const queryData_1 = await User.findById(user.user_id, "userName imgURL");
+      const queryData_2 = await User.findById(selectedUser.user_id, "userName imgURL");
+
+      const user_1 = {user_id: user.user_id, gender: user.gender, interested: user.interested, username: queryData_1?.userName, imgURL: queryData_1?.imgURL};
+      const user_2 = {user_id: selectedUser.user_id, gender: selectedUser.gender, interested: selectedUser.interested, username: queryData_2?.userName, imgURL: queryData_2?.imgURL};
+
       const socketEmission = {
         pair: [user_id, selectedUser.user_id].sort(),
-        userData: [user, selectedUser],
+        userData: [user_1, user_2],
         dateRoomId,
       };
 
@@ -312,7 +318,11 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
         person_2: socketEmission.pair[1],
       };
       const insertCHData = await CallHistory.create(callHistoryData);
-     
+
+
+      console.log('----- socket emission -----');
+      console.log({...socketEmission, timer});
+
       // Emit match event to all users in the event room
       io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
       io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});

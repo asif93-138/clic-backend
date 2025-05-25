@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { generateToken } from '../utils/jwt';
 
 
-const email = "admin@gmail.com";
+const email = "admin@email.com";
 const password = "admin";
 
 export async function adminLogin(req: Request, res: Response): Promise<void> {
