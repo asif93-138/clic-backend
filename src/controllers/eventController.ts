@@ -4,7 +4,7 @@ import fs from 'fs';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
 import User from '../models/user.model';
-import { hasTimePassedPlus3Hours } from '../server';
+// import { hasTimePassedPlus3Hours } from '../server';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -374,4 +374,14 @@ export async function eventUserStatus(req: any, res: Response): Promise<void> {
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
+}
+
+export async function uploadTesting(req: Request, res: Response) {
+    console.log(req.file);
+    res.status(200).json({path: req.file?.path});
+}
+
+export async function deletePhoto(req: any, res: Response) {
+    fs.unlinkSync(req.query.data);
+    res.status(200).send("deleted!");
 }

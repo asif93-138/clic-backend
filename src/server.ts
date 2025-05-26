@@ -7,7 +7,7 @@ import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -357,9 +357,11 @@ app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
+app.post("/testUpload", upload.single('testUpload'), uploadTesting)
 
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
+app.delete("/deletePhoto", deletePhoto)
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
