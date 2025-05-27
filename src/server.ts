@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
-import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile } from "./controllers/userController";
+import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent, uploadTesting } from "./controllers/eventController";
@@ -357,11 +357,12 @@ app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
-app.post("/testUpload", upload.single('testUpload'), uploadTesting)
+app.post("/testUpload", upload.single('testUpload'), uploadTesting);
+app.post("/sendEmail", sendEmailC);
 
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
-app.delete("/deletePhoto", deletePhoto)
+app.delete("/deletePhoto", deletePhoto);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);

@@ -4,6 +4,7 @@ import fs from 'fs';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../utils/jwt';
 import User from '../models/user.model';
+import { sendEmail } from '../utils/sendEmail';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -120,3 +121,20 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
         console.error("Error connecting to MongoDB:", error);
     }
 }
+
+export const sendEmailC = async (req: Request, res: Response) => {
+  const { email, username } = req.body;
+
+  try {
+    await sendEmail(
+      email,
+      'Welcome to MyApp!',
+      `Hello ${username}, welcome to MyApp!`, 
+      `<h1>Hello ${username}</h1><p>Thanks for signing up!</p>`
+    );
+
+    res.status(201).json({ message: 'User created and email sent.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Signup succeeded, but email failed.' });
+  }
+};
