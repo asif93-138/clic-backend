@@ -8,6 +8,7 @@ export interface IUser extends Document {
     gender: string;
     city: string;
     approved: string;
+    expoPushToken?: string;
     ques_ans?: object;
     interests?: string[];
 }
@@ -21,6 +22,7 @@ const UserSchema: Schema = new Schema(
     gender: { type: String, required: true },
     city: { type: String, required: true },
     approved: { type: String, default: 'pending' },
+    expoPushToken: { type: String, default: '' },
     ques_ans: { type: Object },
     interests: { type: [String] },
   },

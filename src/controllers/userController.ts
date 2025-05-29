@@ -1,21 +1,22 @@
 import { Request, Response } from 'express';
-import { v2 as cloudinary } from 'cloudinary';
-import fs from 'fs';
+// import { v2 as cloudinary } from 'cloudinary';
+// import fs from 'fs';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../utils/jwt';
 import User from '../models/user.model';
 import { sendEmail } from '../utils/sendEmail';
+import sendPushNotificationNow from '../utils/sendPushNotificationNow';
 
-cloudinary.config({
-    cloud_name: "dganhxhid",
-    api_key: "672381925111413",
-    api_secret: "KYxtoS3wN2T8eLq0qUP5USr7XQc",
-});
+// cloudinary.config({
+//     cloud_name: "dganhxhid",
+//     api_key: "672381925111413",
+//     api_secret: "KYxtoS3wN2T8eLq0qUP5USr7XQc",
+// });
 
 
-interface User {
-    // Define the properties of the User object if needed
-}
+// interface User {
+//     // Define the properties of the User object if needed
+// }
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -138,3 +139,32 @@ export const sendEmailC = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Signup succeeded, but email failed.' });
   }
 };
+
+export async function pushNotificationUpdate(req: any, res: Response): Promise<void> {
+    try {
+        console.log(req.user); console.log(req.body);
+        const result = await User.findOneAndUpdate(
+            {_id: req.user, expoPushToken: { $ne: req.body.expoPushToken }},
+            { $set: { expoPushToken: req.body.expoPushToken } },
+            { new: true}
+        );
+        console.log(result);
+        res.json(result);
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
+export async function pushNotificationTest(req: any, res: Response): Promise<void> {
+  const userId = "67fb90bc3bfce5f0a942d3bb"
+  const title = "This is title"
+  const body = "This is body"
+
+  const user = await User.findOne({ _id: userId });
+  if (!user?.expoPushToken) {
+    res.status(400).json({ error: 'User has no push token' });
+  }
+
+  await sendPushNotificationNow(user?.expoPushToken, title, body);
+  res.sendStatus(200);
+}

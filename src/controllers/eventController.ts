@@ -4,6 +4,9 @@ import fs from 'fs';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
 import User from '../models/user.model';
+import sendPushNotificationNow from '../utils/sendPushNotificationNow';
+import { scheduleJob } from '../utils/scheduler';
+import { Types } from "mongoose";
 // import { hasTimePassedPlus3Hours } from '../server';
 
 cloudinary.config({
@@ -256,6 +259,7 @@ const upcomingEvents = await Event.aggregate([
 }
 
 export async function createEvent(req: any, res: Response): Promise<void> {
+    let createdEvent:any = "";
     try {
 
         if (!req.file) {
@@ -268,10 +272,20 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         dataObj.event_durations = JSON.parse(dataObj.event_durations);
         dataObj.imgURL = "uploads/" + req.file.filename;
         const insertResult = await Event.create(dataObj);
+        createdEvent = insertResult;
         res.json(insertResult);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
+      res.on('finish', async () => {
+      const users = await User.find({}).select('expoPushToken');
+
+      users.map(async(user)=>{
+        sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`)
+      });
+      console.log("EVENT CONTROLLER", req.body.date_time)
+      scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id})
+  });
 }
 
 export async function getEventApplicationAndApproval(req: Request, res: Response): Promise<void> {
@@ -386,4 +400,101 @@ export async function uploadTesting(req: Request, res: Response) {
 export async function deletePhoto(req: any, res: Response) {
     fs.unlinkSync(req.query.data);
     res.status(200).send("deleted!");
+}
+
+export async function homePageData(req: any, res: Response) {
+    const result = await getApprovedUsersWithEventInfo(req.query.id);
+    res.json(result);
+}
+
+interface Result {
+  userName: string;
+  imgURL: string;
+  gender: string;
+  event_id: string;
+  title: string;
+  date_time: string;
+}
+
+async function getApprovedUsersWithEventInfo(user_id: string): Promise<Result[]> {
+  try {
+    // Step 0: Get the gender of the requesting user
+    const requestingUser = await User.findById(user_id).select("gender");
+    if (!requestingUser || !requestingUser.gender) {
+      throw new Error("User not found or missing gender");
+    }
+
+    const oppositeGender = requestingUser.gender.toLowerCase() === "male" ? "Female" : "Male";
+
+    // Step 1: Find event_ids the user has already joined
+    const joinedEvents = await eventUser.find({ user_id }).select("event_id");
+    const joinedEventIds = joinedEvents.map((eu) => eu.event_id);
+
+    // Step 2: Get events the user has NOT joined
+    const unjoinedEvents = await Event.find({
+      _id: { $nin: joinedEventIds },
+    }).select("_id title date_time");
+
+    const unjoinedEventMap = new Map<string, { title: string; date_time: string }>();
+    const unjoinedEventIds: string[] = [];
+
+    unjoinedEvents.forEach((event) => {
+      const idStr = (event._id as Types.ObjectId).toString();
+      unjoinedEventIds.push(idStr);
+      unjoinedEventMap.set(idStr, {
+        title: event.title,
+        date_time: event.date_time,
+      });
+    });
+
+    // Step 3: Find approved EventUser records in unjoined events
+    const approvedEventUsers = await eventUser.find({
+      event_id: { $in: unjoinedEventIds },
+      status: "approved",
+    }).select("user_id event_id");
+
+    const approvedUserIds = [...new Set(approvedEventUsers.map((eu) => eu.user_id))];
+
+    // Step 4: Filter only users of the opposite gender
+    const users = await User.find(
+      {
+        _id: { $in: approvedUserIds },
+        gender: oppositeGender,
+      },
+      "userName imgURL gender"
+    );
+
+    const userMap = new Map<string, { userName: string; imgURL: string; gender: string }>();
+    users.forEach((u) => {
+      userMap.set((u._id as Types.ObjectId).toString(), {
+        userName: u.userName,
+        imgURL: u.imgURL,
+        gender: u.gender,
+      });
+    });
+
+    // Step 5: Assemble the final result
+    const result: Result[] = approvedEventUsers
+      .map((eu) => {
+        const userInfo = userMap.get(eu.user_id);
+        const eventInfo = unjoinedEventMap.get(eu.event_id);
+
+        if (userInfo && eventInfo) {
+          return {
+            userName: userInfo.userName,
+            imgURL: userInfo.imgURL,
+            gender: userInfo.gender,
+            event_id: eu.event_id,
+            title: eventInfo.title,
+            date_time: eventInfo.date_time,
+          };
+        }
+      })
+      .filter(Boolean) as Result[];
+
+    return result;
+  } catch (error) {
+    console.error("Error:", error);
+    return [];
+  }
 }

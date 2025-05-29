@@ -4,10 +4,10 @@ import dotenv from "dotenv";
 import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
-import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC } from "./controllers/userController";
+import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, updateEvent, uploadTesting } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, homePageData, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -21,6 +21,9 @@ import DatingRoom from "./models/datingRoom";
 import Matched from "./models/matched";
 import { upload } from "./middleware/multerConfig";
 import User from "./models/user.model";
+import agenda from "./config/agenda";
+import defineNotificationJob from './jobs/sendNotification';
+
 
 dotenv.config();
 
@@ -36,6 +39,17 @@ app.use(cors());
 
 // Connect to MongoDB
 connectDB();
+
+// Register Agenda job
+defineNotificationJob(agenda);
+
+// Start Agenda
+(async () => {
+agenda.on('ready', async () => {
+  // console.log("Agenda is ready");
+  await agenda.start(); // <== CRITICAL
+});
+})();
 
 // Enable CORS for Socket.IO
 const io = new Server(server, {
@@ -350,6 +364,8 @@ app.get("/interests", interestsSearchController);
 app.get("/userPools", authMiddleware, getUserPool);
 app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplicationAndApproval);
 app.get("/eventUserStatus", authMiddleware, eventUserStatus);
+app.get("/notification-test", pushNotificationTest);
+app.get("/home-page", homePageData);
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
@@ -359,6 +375,7 @@ app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 app.post("/testUpload", authMiddleware, upload.single('testUpload'), uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
+app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
