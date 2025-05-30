@@ -365,7 +365,7 @@ app.get("/userPools", authMiddleware, getUserPool);
 app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplicationAndApproval);
 app.get("/eventUserStatus", authMiddleware, eventUserStatus);
 app.get("/notification-test", pushNotificationTest);
-app.get("/home-page", homePageData);
+app.get("/home-page", authMiddleware, homePageData);
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);

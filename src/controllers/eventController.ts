@@ -403,7 +403,7 @@ export async function deletePhoto(req: any, res: Response) {
 }
 
 export async function homePageData(req: any, res: Response) {
-    const result = await getApprovedUsersWithEventInfo(req.query.id);
+    const result = await getApprovedUsersWithEventInfo(req.user);
     res.json(result);
 }
 
