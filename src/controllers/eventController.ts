@@ -277,15 +277,15 @@ export async function createEvent(req: any, res: Response): Promise<void> {
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
-      res.on('finish', async () => {
-      const users = await User.find({}).select('expoPushToken');
+  //     res.on('finish', async () => {
+  //     const users = await User.find({}).select('expoPushToken');
 
-      users.map(async(user)=>{
-        sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`)
-      });
-      console.log("EVENT CONTROLLER", req.body.date_time)
-      scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id})
-  });
+  //     users.map(async(user)=>{
+  //       sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`)
+  //     });
+  //     console.log("EVENT CONTROLLER", req.body.date_time)
+  //     scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id})
+  // });
 }
 
 export async function getEventApplicationAndApproval(req: Request, res: Response): Promise<void> {
