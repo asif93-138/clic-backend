@@ -403,98 +403,124 @@ export async function deletePhoto(req: any, res: Response) {
 }
 
 export async function homePageData(req: any, res: Response) {
-    const result = await getApprovedUsersWithEventInfo(req.user);
+    const result = await getApprovedOppositeGenderUsersInFutureEvents(req.user);
     res.json(result);
 }
 
-interface Result {
-  userName: string;
-  imgURL: string;
-  gender: string;
-  event_id: string;
-  title: string;
-  date_time: string;
-}
+export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: string) {
+  // 0) Convert the incoming user_id (string) into an ObjectId
+  const requestingObjectId = new Types.ObjectId(user_id);
 
-async function getApprovedUsersWithEventInfo(user_id: string): Promise<Result[]> {
-  try {
-    // Step 0: Get the gender of the requesting user
-    const requestingUser = await User.findById(user_id).select("gender");
-    if (!requestingUser || !requestingUser.gender) {
-      throw new Error("User not found or missing gender");
-    }
-
-    const oppositeGender = requestingUser.gender.toLowerCase() === "male" ? "Female" : "Male";
-
-    // Step 1: Find event_ids the user has already joined
-    const joinedEvents = await eventUser.find({ user_id }).select("event_id");
-    const joinedEventIds = joinedEvents.map((eu) => eu.event_id);
-
-    // Step 2: Get events the user has NOT joined
-    const unjoinedEvents = await Event.find({
-      _id: { $nin: joinedEventIds },
-    }).select("_id title date_time");
-
-    const unjoinedEventMap = new Map<string, { title: string; date_time: string }>();
-    const unjoinedEventIds: string[] = [];
-
-    unjoinedEvents.forEach((event) => {
-      const idStr = (event._id as Types.ObjectId).toString();
-      unjoinedEventIds.push(idStr);
-      unjoinedEventMap.set(idStr, {
-        title: event.title,
-        date_time: event.date_time,
-      });
-    });
-
-    // Step 3: Find approved EventUser records in unjoined events
-    const approvedEventUsers = await eventUser.find({
-      event_id: { $in: unjoinedEventIds },
-      status: "approved",
-    }).select("user_id event_id");
-
-    const approvedUserIds = [...new Set(approvedEventUsers.map((eu) => eu.user_id))];
-
-    // Step 4: Filter only users of the opposite gender
-    const users = await User.find(
-      {
-        _id: { $in: approvedUserIds },
-        gender: oppositeGender,
-      },
-      "userName imgURL gender"
-    );
-
-    const userMap = new Map<string, { userName: string; imgURL: string; gender: string }>();
-    users.forEach((u) => {
-      userMap.set((u._id as Types.ObjectId).toString(), {
-        userName: u.userName,
-        imgURL: u.imgURL,
-        gender: u.gender,
-      });
-    });
-
-    // Step 5: Assemble the final result
-    const result: Result[] = approvedEventUsers
-      .map((eu) => {
-        const userInfo = userMap.get(eu.user_id);
-        const eventInfo = unjoinedEventMap.get(eu.event_id);
-
-        if (userInfo && eventInfo) {
-          return {
-            userName: userInfo.userName,
-            imgURL: userInfo.imgURL,
-            gender: userInfo.gender,
-            event_id: eu.event_id,
-            title: eventInfo.title,
-            date_time: eventInfo.date_time,
-          };
-        }
-      })
-      .filter(Boolean) as Result[];
-
-    return result;
-  } catch (error) {
-    console.error("Error:", error);
-    return [];
+  // 1) Look up gender of the requesting user, so we know the “opposite” gender
+  const requestingUser = await User.findById(requestingObjectId)
+    .select("gender")
+    .lean();
+  if (!requestingUser) {
+    throw new Error("Requesting user not found.");
   }
+  const oppositeGender =
+    requestingUser.gender.toLowerCase() === "male" ? "Female" : "Male";
+
+  // 2) Gather all event_ids (strings) that this user has already joined
+  //    (EventUser.event_id is stored as a string in our schema)
+  const joinedDocs = await eventUser.find({ user_id: user_id })
+    .select("event_id")
+    .lean();
+  const joinedEventIds: string[] = joinedDocs.map((doc) => doc.event_id);
+
+  // 3) Prepare “now” for comparison (string form is fine, but we’ll use it in a Date literal below)
+  const nowDate = new Date(); // current UTC time
+
+  // 4) Build the aggregation pipeline on EventUser
+  const result = await eventUser.aggregate([
+    // ─── Stage 1 ───
+    // Only look at “approved” records in EventUser, and exclude any event_id that
+    // the requesting user has already joined.
+    {
+      $match: {
+        status: "approved",
+        event_id: { $nin: joinedEventIds },
+      },
+    },
+
+    // ─── Stage 2 ───
+    // We need to convert both user_id and event_id (stored as strings) into actual ObjectIds
+    // before doing $lookup against “users” (which has _id:ObjectId) and “events” (which has _id:ObjectId).
+    {
+      $addFields: {
+        userObjectId: { $toObjectId: "$user_id" },
+        eventObjectId: { $toObjectId: "$event_id" },
+      },
+    },
+
+    // ─── Stage 3 ───
+    // Join in the “users” collection by matching userObjectId → _id
+    {
+      $lookup: {
+        from: "users",
+        localField: "userObjectId",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    { $unwind: "$user" },
+
+    // ─── Stage 4 ───
+    // Only keep those users whose gender is the opposite of the requesting user
+    {
+      $match: {
+        "user.gender": oppositeGender,
+      },
+    },
+
+    // ─── Stage 5 ───
+    // Join in the “events” collection by matching eventObjectId → _id
+    {
+      $lookup: {
+        from: "events",
+        localField: "eventObjectId",
+        foreignField: "_id",
+        as: "event",
+      },
+    },
+    { $unwind: "$event" },
+
+    // ─── Stage 6 ───
+    // Filter to only “future” events.  event.date_time is stored as a string like "2025-08-25T16:00",
+    // so we must parse it into a Date to compare to “nowDate” (current UTC).
+    {
+      $match: {
+        $expr: {
+          $gt: [
+            {
+              // Convert the ISO‐style string "YYYY‐MM‐DDTHH:mm" into a Date (UTC)
+              $dateFromString: {
+                dateString: "$event.date_time",
+                timezone: "UTC",
+              },
+            },
+            nowDate,
+          ],
+        },
+      },
+    },
+
+    // ─── Stage 7 ───
+    // Finally, project exactly the fields we want:
+    //   userName, imgURL, gender (from the “user” object)
+    //   event_id, title, date_time (from the “event” object)
+    {
+      $project: {
+        _id: 0,
+        userName: "$user.userName",
+        imgURL: "$user.imgURL",
+        gender: "$user.gender",
+        event_id: "$event._id",    // this will be an ObjectId
+        title: "$event.title",
+        date_time: "$event.date_time",
+      },
+    },
+  ]);
+
+  return result;
 }
