@@ -6,7 +6,7 @@ import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
-import { adminLogin } from "./controllers/adminController";
+import { adminDataEvent, adminLogin } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, homePageData, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
@@ -366,6 +366,7 @@ app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplication
 app.get("/eventUserStatus", authMiddleware, eventUserStatus);
 app.get("/notification-test", pushNotificationTest);
 app.get("/home-page", authMiddleware, homePageData);
+app.get("/admin-event-level-data", authMiddleware, adminDataEvent);
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);

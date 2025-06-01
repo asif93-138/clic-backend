@@ -7,6 +7,7 @@ import User from '../models/user.model';
 import sendPushNotificationNow from '../utils/sendPushNotificationNow';
 import { scheduleJob } from '../utils/scheduler';
 import { Types } from "mongoose";
+import EventCancellation from '../models/eventCancellation';
 // import { hasTimePassedPlus3Hours } from '../server';
 
 cloudinary.config({
@@ -315,7 +316,21 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                 event_id: dataObj_1.event_id
             });
 
-            if (deleteResult.acknowledged) {
+            const filter = {event_id: dataObj_1.event_id, user_id: dataObj_1.user_id};
+
+            const update = {
+              $inc: { count: 1 },  // increment count by 1
+              $setOnInsert: { cancelledBy: 'user' }  // set other fields only if inserted
+            };
+
+            const options = {
+                  upsert: true,   // create if doesn't exist
+                  new: true       // return the updated/new document
+            };
+
+            const cancelInsertion = await EventCancellation.findOneAndUpdate(filter, update, options);
+
+            if (deleteResult.acknowledged && cancelInsertion) {
                 res.json({ btnTxt: 'join' });
             } else {
                 res.status(400).json({ message: "failed!" });
