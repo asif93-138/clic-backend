@@ -83,7 +83,7 @@ io.on('connection', (socket: any) => {
 
 async function disconnectUser(event_id: any, user: any) {
   console.log('- disconnectUser Function started -');
-  await leaveDatingRoom(event_id, user.user_id);
+  await leaveDatingRoom(event_id, user.user_id, true);
   await eventLeaving({ event_id, user });
   console.log('- disconnectUser Function ended -');
 }
@@ -156,6 +156,7 @@ async function eventJoining(req: any, res: any) {
         user_id: user.user_id,
         gender: user.gender,
         interested: user.interested,
+        status: "active"
       };
       const insertedResult_1 = await OpEvent.create(data_1); 
       const insertedResult_2 = await WaitingRoom.create(data_2);
@@ -166,14 +167,10 @@ async function eventJoining(req: any, res: any) {
     }
   } else {
 
-    const genderArr = await WaitingRoom.find({event_id: event_id, gender: user.gender});
+    const userObj = await WaitingRoom.find({event_id: event_id, user_id: user.user_id});
 
-    for (let i = 0; i < genderArr.length; i++) {
-      if (genderArr[i].user_id === user.user_id) {
-        flag = true;
-        break;
-      }
-    }
+    if (userObj[0]) flag = true;
+  
     if (!flag) {
       try {
         const data = {
@@ -181,6 +178,7 @@ async function eventJoining(req: any, res: any) {
           user_id: user.user_id,
           gender: user.gender,
           interested: user.interested,
+          status: "active"
         };
         const insertedResult = await WaitingRoom.create(data);
         res.send({ user_id: user.user_id, event_time: result.event_time });
@@ -189,11 +187,14 @@ async function eventJoining(req: any, res: any) {
         res.status(500).send('Server Error'); 
       }
     } else {
-      res.status(409).json({message: "user already exists!!"});
+      if (userObj[0].status != "active") {
+        const updateData = await WaitingRoom.findByIdAndUpdate(userObj[0]._id, {status: "active"});
+      }
+      res.send({ user_id: user.user_id, event_time: result.event_time });
     }
   }
   res.on('finish', () => {
-    if (!flag && eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[1]);
+    if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[1]);
   });
   console.log('----- JOIN ENDED -----');
 }
@@ -202,12 +203,12 @@ app.put('/leaveDatingRoom', async (req, res) => {
   console.log('--- LEAVE DATING STARTED ---');
 
   // await onLeave(req.body.event_id, req.body.user_id, req.body.isDisconnected, res);
-  leaveDatingRoom(req.body.event_id, req.body.user_id);
+  leaveDatingRoom(req.body.event_id, req.body.user_id, req.body.left_early);
   console.log('--- LEAVE DATING ENDED ---');
   res.json({ message: 'leaving dating room..' });
 })
 
-async function leaveDatingRoom(event_id: any, user_id: any) {
+async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
   console.log('----- leaveDatingRoom function started -----');
   const result: any = await DatingRoom.find({ event_id: event_id });
   let data;
@@ -224,6 +225,8 @@ async function leaveDatingRoom(event_id: any, user_id: any) {
       //   { dating_room: updatedArr }
       // );
       await DatingRoom.findByIdAndDelete(data._id);
+      await CallHistory.findOneAndUpdate({event_id: event_id, person_1: data.pair[0], person_2: data.pair[1]},
+         {endedAt: new Date(), left_early: left_early});
       console.log(`has_left:${data.dateRoomId}`);
       // emit
       io.emit(`has_left:${data.dateRoomId}`);
@@ -241,7 +244,8 @@ app.delete("/leave_event", async (req, res) => {
 
 async function eventLeaving(params: any) {
   console.log('--- eventLeaving function started ---');
-  await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
+  // await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
+  await WaitingRoom.findOneAndUpdate({event_id: params.event_id, user_id: params.user.user_id}, {status: "inactive"});
   console.log('--- eventLeaving function ended ---');
 }
 
@@ -254,17 +258,27 @@ app.put('/extend', async (req: any, res: any) => {
       const data = result;
       const updatedArr = result.extension;
       updatedArr.push(user_id);
-      const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {extension: updatedArr});
       if (updatedArr.length === 2) {
         io.emit(`clicked:${dateRoomId}`);
         updatedArr.sort()
-        const updateResult = await Matched.create({
-          event_id: event_id,
-          person_1: updatedArr[0],
-          person_2: updatedArr[1],
-        });
+        // const updateResult = await Matched.create({
+        //   event_id: event_id,
+        //   person_1: updatedArr[0],
+        //   person_2: updatedArr[1],
+        // });
+        const filter = {event_id: event_id, person_1: updatedArr[0], person_2: updatedArr[1]};
+        const update = {
+            $inc: { count: 1 }  // increment count by 1
+        };
+        const options = {
+            upsert: true,   // create if doesn't exist
+            new: true       // return the updated/new document
+        };
+        const matchInsertion = await Matched.findOneAndUpdate(filter, update, options);
+        const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {extension: []});
         res.json({ message: 'both party have extended' });
       } else {
+        const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {extension: updatedArr});
         io.emit(`extend_request:${dateRoomId}`, { user_id });
         res.json({ message: 'waiting for your partner' });
       }
@@ -277,28 +291,24 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
   console.log('----- pairing function started -----');
   const user_id = user.user_id;
   const interestedIn = user.interested;
-  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interestedIn});
-  
-  if (!interestedGenderArray || interestedGenderArray.length === 0) return;
+  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interestedIn, status: "active"});
 
-  let contFlag = false
+  if (!interestedGenderArray || interestedGenderArray.length === 0) return;
 
   for (let i = 0; i < interestedGenderArray.length; i++) {
 
     const selectedUser = interestedGenderArray[i];
-
-    if (selectedUser.user_id === user_id) contFlag = true;
+ 
+    if (selectedUser.user_id === user_id) continue;
 
     const userIdArray = [user_id, selectedUser.user_id].sort();
 
     const call_history = await CallHistory.find({event_id: event_id, person_1: userIdArray[0], person_2: userIdArray[1]});
-
+  
       if (call_history[0]?.person_1 == userIdArray[0] && call_history[0]?.person_2 == userIdArray[1]) {
-        contFlag = true
-        break;
+        continue;
       }
 
-    if (contFlag) continue;
     if (selectedUser.interested === user.gender) {
 
       const dateRoomId = Math.random().toString(36).substring(2, 12);
@@ -315,8 +325,11 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
         dateRoomId,
       };
 
-      const deletePersonOne = await WaitingRoom.deleteOne({ user_id: userIdArray[0], event_id: event_id });
-      const deletePersonTwo = await WaitingRoom.deleteOne({ user_id: userIdArray[1], event_id: event_id });
+      // const deletePersonOne = await WaitingRoom.deleteOne({ user_id: userIdArray[0], event_id: event_id });
+      // const deletePersonTwo = await WaitingRoom.deleteOne({ user_id: userIdArray[1], event_id: event_id });
+
+      const deletePersonOne = await WaitingRoom.findOneAndUpdate({event_id: event_id, user_id: userIdArray[0]}, {status: "inactive"});
+      const deletePersonTwo = await WaitingRoom.findOneAndUpdate({event_id: event_id, user_id: userIdArray[1]}, {status: "inactive"});
       
       const dateRoomData = {
         event_id: event_id,
@@ -330,6 +343,7 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
         event_id: event_id,
         person_1: socketEmission.pair[0],
         person_2: socketEmission.pair[1],
+        startedAt: new Date()
       };
       const insertCHData = await CallHistory.create(callHistoryData);
 

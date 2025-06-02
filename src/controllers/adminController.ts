@@ -5,6 +5,7 @@ import eventUser from '../models/eventUser';
 import EventCancellation from '../models/eventCancellation';
 import CallHistory from '../models/callHistory';
 import Matched from '../models/matched';
+import WaitingRoom from '../models/waitingRoom';
 
 const email = "admin@email.com";
 const password = "admin";
@@ -28,13 +29,16 @@ export async function adminDataEvent(req: Request, res: Response) {
     for (const event of events) {
         const pendingList = await eventUser.find({event_id: event._id, status: "pending"});
         const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
+        const attendees = await WaitingRoom.find({event_id: event._id, status: "inactive"});
         const cancelList = await EventCancellation.find({event_id: event._id});
         const callList = await CallHistory.find({event_id: event._id});
+        const leftEarly = await CallHistory.find({event_id: event._id, left_early: true});
         const matchList = await Matched.find({event_id: event._id});
         arr.push({
             id: event._id, title: event.title, date_time: event.date_time, event_durations: event.event_durations,
+            attendees: attendees.length,
             pending: pendingList.length, approved: approvedList.length, totalCancelled: cancelList.length,
-            totalCall: callList.length, totalMatch: matchList.length
+            totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length
         });
     }
     res.json(arr);
