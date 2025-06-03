@@ -129,14 +129,14 @@ export const sendEmailC = async (req: Request, res: Response) => {
   try {
     await sendEmail(
       email,
-      'Welcome to MyApp!',
-      `Hello ${username}, welcome to MyApp!`, 
-      `<h1>Hello ${username}</h1><p>Thanks for signing up!</p>`
+      'New pool created!',
+      `Hello ${username}, New pool arrived for you!`, 
+      `<h1>Hello ${username}</h1><p>Check your upcoming pools!</p>`
     );
 
-    res.status(201).json({ message: 'User created and email sent.' });
+    res.status(201).json({ message: 'email sent.' });
   } catch (err) {
-    res.status(500).json({ message: 'Signup succeeded, but email failed.' });
+    res.status(500).json({ message: 'email failed.' });
   }
 };
 

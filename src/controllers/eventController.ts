@@ -8,6 +8,7 @@ import sendPushNotificationNow from '../utils/sendPushNotificationNow';
 import { scheduleJob } from '../utils/scheduler';
 import { Types } from "mongoose";
 import EventCancellation from '../models/eventCancellation';
+import { sendEmail } from '../utils/sendEmail';
 // import { hasTimePassedPlus3Hours } from '../server';
 
 cloudinary.config({
@@ -278,15 +279,22 @@ export async function createEvent(req: any, res: Response): Promise<void> {
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
-  //     res.on('finish', async () => {
-  //     const users = await User.find({}).select('expoPushToken');
+      res.on('finish', async () => {
+      const users = await User.find({}).select('email userName expoPushToken');
 
-  //     users.map(async(user)=>{
-  //       sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`)
-  //     });
-  //     console.log("EVENT CONTROLLER", req.body.date_time)
-  //     scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id})
-  // });
+      users.map(async(user)=>{
+        if (user.expoPushToken) sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`);
+        if (user.email == "asif93@student.sust.edu" || user.email == "mahir.tasin.dev@gmail.com") {
+        sendEmail(
+          user.email,
+          'New pool created!',
+          `Hello ${user.userName}, New pool arrived for you!`, 
+          `<h1>Hello ${user.userName}</h1> <p>Check your upcoming pools!</p>`
+        );
+        }
+      });
+      // scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id})
+  });
 }
 
 export async function getEventApplicationAndApproval(req: Request, res: Response): Promise<void> {

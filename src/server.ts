@@ -92,37 +92,33 @@ app.post('/join', async (req, res) => {
   eventJoining(req, res);
 });
 
-export function hasTimePassedPlus3Hours(datetimeStr: any, duration:any ) {
-  // Parse input string to local time
-  const [datePart, timePart] = datetimeStr.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour, minute] = timePart.split(':').map(Number);
+export function hasTimePassedPlusHours(datetimeStr: string, duration: number) {
+  // Parse as UTC Date object
+  const originalDate = new Date(datetimeStr); // 'Z' ensures UTC
 
-  // Create local Date object
-  const originalDate = new Date(year, month - 1, day, hour, minute);
-
-  // Add 3 hours
+  // Add hours
   const futureDate = new Date(originalDate.getTime() + duration * 60 * 60 * 1000);
 
-  // Format adjusted date to "YYYY-MM-DDTHH:mm"
-  const formatDateLocal = (date: any) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const h = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${y}-${m}-${d}T${h}:${min}`;
-  };
+  // Get current UTC time
+  const nowUTC = new Date();
 
-  const adjustedTime = formatDateLocal(futureDate);
-  const now = new Date();
-  const hasPassed = now > futureDate;
+  // Check if current UTC time has passed the future time
+  const hasPassed = nowUTC > futureDate;
+
+  // Format adjusted time in UTC as 'YYYY-MM-DDTHH:mm'
+  const y = futureDate.getUTCFullYear();
+  const m = String(futureDate.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(futureDate.getUTCDate()).padStart(2, '0');
+  const h = String(futureDate.getUTCHours()).padStart(2, '0');
+  const min = String(futureDate.getUTCMinutes()).padStart(2, '0');
+  const adjustedTime = `${y}-${m}-${d}T${h}:${min}`;
 
   return {
     adjustedTime,
     hasPassed
   };
 }
+
 
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
@@ -138,7 +134,7 @@ async function eventJoining(req: any, res: any) {
   }
   const eventTime = eventData.date_time;
 
-  if (hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).hasPassed) {
+  if (hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).hasPassed) {
     res.status(410).json({ message: "event ended!" });
     return;
   }
@@ -149,7 +145,7 @@ async function eventJoining(req: any, res: any) {
     try {
       const data_1 = {
         event_id: event_id,
-        event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime
+        event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime
       };
       const data_2 = {
         event_id: event_id,
@@ -160,7 +156,7 @@ async function eventJoining(req: any, res: any) {
       };
       const insertedResult_1 = await OpEvent.create(data_1); 
       const insertedResult_2 = await WaitingRoom.create(data_2);
-      res.send({ user_id: user.user_id, event_time: hasTimePassedPlus3Hours(eventTime, eventData.event_durations[0]).adjustedTime });
+      res.send({ user_id: user.user_id, event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime });
     } catch (error) {
       console.error(error);
       res.status(500).send('Server Error');
@@ -194,7 +190,7 @@ async function eventJoining(req: any, res: any) {
     }
   }
   res.on('finish', () => {
-    if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[1]);
+    if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
   });
   console.log('----- JOIN ENDED -----');
 }

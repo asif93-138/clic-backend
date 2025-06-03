@@ -8,7 +8,6 @@ import agenda from "../config/agenda";
  */
 export async function scheduleJob(jobName: string, timestamp: string | number | Date, data = {}) {
   const runAt = new Date(timestamp + ':00.000Z');
-  console.log("Runat", runAt)
   if (isNaN(runAt.getTime())) {
     throw new Error('Invalid timestamp provided');
   }
