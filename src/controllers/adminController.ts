@@ -25,7 +25,7 @@ export async function adminLogin(req: Request, res: Response): Promise<void> {
 
 export async function adminDataEvent(req: Request, res: Response) {
     const arr = [];
-    const events = await Event.find({}, "title date_time event_durations") as Array<{ _id: any, title: string, date_time: any, event_durations: any }>;
+    const events = await Event.find({ date_time: { $lt: new Date().toISOString() } }, "title date_time event_durations") as Array<{ _id: any, title: string, date_time: any, event_durations: any }>;
     for (const event of events) {
         const pendingList = await eventUser.find({event_id: event._id, status: "pending"});
         const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
@@ -101,14 +101,19 @@ const getGenderCountsByEvent = async (eventId: string) => {
   return counts;
 };
 const genderCounts = await getGenderCountsByEvent(event._id.toString());
-
+var counts: { [key: number]: number } = {};
+matchList.forEach(x => {
+    if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
+    else counts[x.count] = 1;
+});
         arr.push({
             id: event._id, title: event.title, date_time: event.date_time, event_durations: event.event_durations,
             attendees: attendees.length, attendeesM: attendeesM.length, attendeesF: attendeesF.length,
             pending: pendingList.length, approved: approvedList.length, totalCancelled: cancelList.length,
             totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length, 
             lastExit: latestDoc?.updatedAt || null, approvedGenderC: genderCounts, 
-            totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length)
+            totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length),
+            matchCounts: counts
         });
     }
     res.json(arr);
