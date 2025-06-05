@@ -7,7 +7,7 @@ import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminDataEvent, adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, homePageData, updateEvent, uploadTesting } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -68,7 +68,7 @@ io.on('connection', (socket: any) => {
   socket.user_id = user_id;
   socket.gender = gender;
   socket.interested = interested;
-  console.log('Client connected:', socket.handshake.query);
+  console.log('Client connected:', socket.id);
 
 
   socket.on('disconnect', () => {
@@ -76,7 +76,7 @@ io.on('connection', (socket: any) => {
     const user_id = socket.user_id;
     const gender = socket.gender;
     const interested = socket.interested;
-    console.log('Client disconnected:', socket.handshake.query);
+    console.log('Client disconnected:', socket.id);
     disconnectUser(event_id, { user_id, gender, interested });
   });
 });
@@ -384,6 +384,7 @@ app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
+// app.post("/eventUserReject", authMiddleware, rejectEventUser);
 app.post("/testUpload", authMiddleware, upload.single('testUpload'), uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/notification-register", authMiddleware, pushNotificationUpdate);

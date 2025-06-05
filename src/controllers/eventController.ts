@@ -367,6 +367,24 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
     }
 }
 
+export async function rejectEventUser(req: Request, res: Response): Promise<void> {
+    try {
+        const dataObj_1 = req.body.firstObj;
+        const dataObj_2 = req.body.secondObj;
+        const eventUserResult = await eventUser.updateOne(
+            { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
+            { $set: dataObj_2 }
+        );
+        if (eventUserResult.acknowledged) {
+            res.json({ message: "Successfully approved user!" });
+        } else {
+            res.status(400).json({ message: "failed!" });
+        }
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function updateEvent(req: any, res: Response): Promise<void> {
     // console.log("Request Params:", req.params);
     // console.log("Request Obj:", req.body);
