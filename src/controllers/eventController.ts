@@ -20,7 +20,77 @@ cloudinary.config({
 
 export async function getAllEvents(req: Request, res: Response): Promise<void> {
     try {
-        const result = await Event.find();
+        const result: any[] = [];
+        const events: any = await Event.find();
+        for (const event of events) {
+          const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
+          const pendingList = await eventUser.find({event_id: event._id, status: "pending"});
+          const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
+          const getGenderCountsByEvent = async (eventId: string) => {
+  const result = await eventUser.aggregate([
+    // 1) Match only the approved EventUser docs for the given event_id
+    {
+      $match: {
+        event_id: eventId,
+        status: "approved",
+      },
+    },
+
+    // 2) Do a lookup into "users", converting user_id (string) → ObjectId
+    {
+      $lookup: {
+        from: "users", // MongoDB collection name for your User model
+        let: { uid_str: "$user_id" },
+        pipeline: [
+          {
+            // Convert the EventUser.user_id string into an ObjectId to compare with User._id
+            $match: {
+              $expr: {
+                $eq: [
+                  "$_id",
+                  { $toObjectId: "$$uid_str" },
+                ],
+              },
+            },
+          },
+          {
+            // Only pull in the gender field (we don’t need the entire user document)
+            $project: { gender: 1 },
+          },
+        ],
+        as: "user_docs",
+      },
+    },
+
+    // 3) Unwind so that each EventUser now has a single `user_docs` sub‐document
+    {
+      $unwind: "$user_docs",
+    },
+
+    // 4) Group by user_docs.gender and count
+    {
+      $group: {
+        _id: "$user_docs.gender",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  // Format the aggregation result into a { Male: X, Female: Y } object
+  const counts = { Male: 0, Female: 0 };
+  result.forEach((doc) => {
+    if (doc._id === "Male") counts.Male = doc.count;
+    if (doc._id === "Female") counts.Female = doc.count;
+  });
+
+  return counts;
+};
+const genderCounts = await getGenderCountsByEvent(event._id.toString());
+          dataObj.approvedGenderC = genderCounts;
+          dataObj.pending = pendingList.length;
+          dataObj.approved = approvedList.length;
+          result.push(dataObj);
+        }
         res.json(result);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);

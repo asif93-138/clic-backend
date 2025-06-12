@@ -27,7 +27,6 @@ export async function adminDataEvent(req: Request, res: Response) {
     const dataObj: { [key: string]: any } = {};
     const events = await Event.find({ date_time: { $lt: new Date().toISOString() } }, "") as Array<{ _id: any, title: string, date_time: any, event_durations: any }>;
     for (const event of events) {
-        const pendingList = await eventUser.find({event_id: event._id, status: "pending"});
         const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
         const attendees = await WaitingRoom.find({event_id: event._id, status: "inactive"});
         const attendeesM = await WaitingRoom.find({event_id: event._id, status: "inactive", gender: "M"});
@@ -41,76 +40,16 @@ export async function adminDataEvent(req: Request, res: Response) {
             .select('updatedAt')     // Select only the updatedAt field
             .lean();
 
-const getGenderCountsByEvent = async (eventId: string) => {
-  const result = await eventUser.aggregate([
-    // 1) Match only the approved EventUser docs for the given event_id
-    {
-      $match: {
-        event_id: eventId,
-        status: "approved",
-      },
-    },
-
-    // 2) Do a lookup into "users", converting user_id (string) → ObjectId
-    {
-      $lookup: {
-        from: "users", // MongoDB collection name for your User model
-        let: { uid_str: "$user_id" },
-        pipeline: [
-          {
-            // Convert the EventUser.user_id string into an ObjectId to compare with User._id
-            $match: {
-              $expr: {
-                $eq: [
-                  "$_id",
-                  { $toObjectId: "$$uid_str" },
-                ],
-              },
-            },
-          },
-          {
-            // Only pull in the gender field (we don’t need the entire user document)
-            $project: { gender: 1 },
-          },
-        ],
-        as: "user_docs",
-      },
-    },
-
-    // 3) Unwind so that each EventUser now has a single `user_docs` sub‐document
-    {
-      $unwind: "$user_docs",
-    },
-
-    // 4) Group by user_docs.gender and count
-    {
-      $group: {
-        _id: "$user_docs.gender",
-        count: { $sum: 1 },
-      },
-    },
-  ]);
-
-  // Format the aggregation result into a { Male: X, Female: Y } object
-  const counts = { Male: 0, Female: 0 };
-  result.forEach((doc) => {
-    if (doc._id === "Male") counts.Male = doc.count;
-    if (doc._id === "Female") counts.Female = doc.count;
-  });
-
-  return counts;
-};
-const genderCounts = await getGenderCountsByEvent(event._id.toString());
 var counts: { [key: number]: number } = {};
 matchList.forEach(x => {
     if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
     else counts[x.count] = 1;
 });
         dataObj[event._id] = {
-            id: event._id, attendees: attendees.length, attendeesM: attendeesM.length, attendeesF: attendeesF.length,
-            pending: pendingList.length, approved: approvedList.length, totalCancelled: cancelList.length,
+            id: event._id, attendees: attendees.length, attendeesM: attendeesM.length, 
+            attendeesF: attendeesF.length, approved: approvedList.length, totalCancelled: cancelList.length,
             totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length, 
-            lastExit: latestDoc?.updatedAt || null, approvedGenderC: genderCounts, 
+            lastExit: latestDoc?.updatedAt || null,
             totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length),
             matchCounts: counts
         };
