@@ -119,10 +119,32 @@ export function hasTimePassedPlusHours(datetimeStr: string, duration: number) {
   };
 }
 
+async function liveMatches(data: any) {
+  const {event_id, user_id, gender, interested, rejoin} = data;
+  if (!rejoin) {
+      const historyArr: any[] = [], historyObj = new Set(), potentialMatches = [];
+  const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interested, in_event: true});
+  const call_historyArr = await CallHistory.find({event_id: event_id});
+  for (const history of call_historyArr) {
+    if (history.person_1 == user_id) historyArr.push(history.person_2); historyObj.add(history.person_2);
+    if (history.person_2 == user_id) historyArr.push(history.person_1); historyObj.add(history.person_1);
+  }
+  for (const user of interestedGenderArray) {
+    if (!historyObj.has(user.user_id)) {
+      const userData = await User.findById(user.user_id, "userName imgURL");
+       potentialMatches.push(userData); 
+    }
+  }
+  const userData = await User.findById(user_id, "userName imgURL");
+  io.emit(`${event_id}-${gender}-potential-matches`, userData);
+  return {historyArr, potentialMatches};
+  }
+}
 
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
-  const { event_id, user } = req.body;
+  const { event_id, user, rejoin } = req.body;
+  console.log("rejoin", rejoin);
   const eventData = await Event.findOne({ _id: event_id });
   if (!eventData) {
     res.status(404).json({ message: "Event not found!" });
@@ -152,11 +174,13 @@ async function eventJoining(req: any, res: any) {
         user_id: user.user_id,
         gender: user.gender,
         interested: user.interested,
-        status: "active"
+        status: "active",
+        in_event: true
       };
       const insertedResult_1 = await OpEvent.create(data_1); 
       const insertedResult_2 = await WaitingRoom.create(data_2);
-      res.send({ user_id: user.user_id, event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime });
+      const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
+      res.send({ user_id: user.user_id, event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
     } catch (error) {
       console.error(error);
       res.status(500).send('Server Error');
@@ -174,23 +198,26 @@ async function eventJoining(req: any, res: any) {
           user_id: user.user_id,
           gender: user.gender,
           interested: user.interested,
-          status: "active"
+          status: "active",
+          in_event: true
         };
         const insertedResult = await WaitingRoom.create(data);
-        res.send({ user_id: user.user_id, event_time: result.event_time });
+              const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
+        res.send({ user_id: user.user_id, event_time: result.event_time, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
       } catch (error) {
         console.error(error);
         res.status(500).send('Server Error'); 
       }
     } else {
-      if (userObj[0].status != "active") {
-        const updateData = await WaitingRoom.findByIdAndUpdate(userObj[0]._id, {status: "active"});
+      if (userObj[0].status != "active" || userObj[0].in_event != true) {
+        const updateData = await WaitingRoom.findByIdAndUpdate(userObj[0]._id, {status: "active", in_event: true});
       }
-      res.send({ user_id: user.user_id, event_time: result.event_time });
+                    const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
+      res.send({ user_id: user.user_id, event_time: result.event_time, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
     }
   }
   res.on('finish', () => {
-    if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
+    // if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
   });
   console.log('----- JOIN ENDED -----');
 }
@@ -241,7 +268,7 @@ app.delete("/leave_event", async (req, res) => {
 async function eventLeaving(params: any) {
   console.log('--- eventLeaving function started ---');
   // await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
-  await WaitingRoom.findOneAndUpdate({event_id: params.event_id, user_id: params.user.user_id}, {status: "inactive"});
+  await WaitingRoom.findOneAndUpdate({event_id: params.event_id, user_id: params.user.user_id}, {status: "inactive", in_event: false});
   console.log('--- eventLeaving function ended ---');
 }
 

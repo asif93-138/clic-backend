@@ -6,7 +6,8 @@ const WaitingRoomSchema = new mongoose.Schema(
     user_id: { type: String, required: true },
     gender: { type: String, required: true },
     interested: { type: String, required: true },
-    status: {type: String, required: true}
+    status: {type: String, required: true},
+    in_event: {type: Boolean, required: true}
   },
   { timestamps: true }
 );
