@@ -136,6 +136,7 @@ async function liveMatches(data: any) {
     }
   }
   const userData = await User.findById(user_id, "userName imgURL");
+  console.log("######## emission from joining!");
   io.emit(`${event_id}-${gender}-potential-matches`, userData);
   return {historyArr, potentialMatches};
   }
@@ -224,7 +225,6 @@ async function eventJoining(req: any, res: any) {
 
 app.put('/leaveDatingRoom', async (req, res) => {
   console.log('--- LEAVE DATING STARTED ---');
-
   // await onLeave(req.body.event_id, req.body.user_id, req.body.isDisconnected, res);
   leaveDatingRoom(req.body.event_id, req.body.user_id, req.body.left_early);
   console.log('--- LEAVE DATING ENDED ---');
@@ -269,6 +269,8 @@ async function eventLeaving(params: any) {
   console.log('--- eventLeaving function started ---');
   // await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
   await WaitingRoom.findOneAndUpdate({event_id: params.event_id, user_id: params.user.user_id}, {status: "inactive", in_event: false});
+  console.log("######## emission from leaving!");
+  io.emit(`${params.event_id}-${params.user.gender}-potential-matches-left`, params.user.user_id);
   console.log('--- eventLeaving function ended ---');
 }
 
