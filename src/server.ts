@@ -218,7 +218,7 @@ async function eventJoining(req: any, res: any) {
     }
   }
   res.on('finish', () => {
-    // if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
+    if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
   });
   console.log('----- JOIN ENDED -----');
 }
