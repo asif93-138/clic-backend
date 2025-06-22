@@ -13,7 +13,6 @@ import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
 import http from "http";
 import { Server } from "socket.io";
-import OpEvent from "./models/opEvents";
 import Event from "./models/event";
 import WaitingRoom from "./models/waitingRoom";
 import CallHistory from "./models/callHistory";
@@ -145,7 +144,7 @@ async function liveMatches(data: any) {
 async function eventJoining(req: any, res: any) {
   console.log('----- JOIN STARTED -----');
   const { event_id, user, rejoin } = req.body;
-  console.log("rejoin", rejoin);
+  // console.log("rejoin", rejoin);
   const eventData = await Event.findOne({ _id: event_id });
   if (!eventData) {
     res.status(404).json({ message: "Event not found!" });
@@ -162,33 +161,8 @@ async function eventJoining(req: any, res: any) {
     return;
   }
   let flag = false;
-  
-  const result = await OpEvent.findOne({ event_id: event_id });
-  if (!result) {
-    try {
-      const data_1 = {
-        event_id: event_id,
-        event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime
-      };
-      const data_2 = {
-        event_id: event_id,
-        user_id: user.user_id,
-        gender: user.gender,
-        interested: user.interested,
-        status: "active",
-        in_event: true
-      };
-      const insertedResult_1 = await OpEvent.create(data_1); 
-      const insertedResult_2 = await WaitingRoom.create(data_2);
-      const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
-      res.send({ user_id: user.user_id, event_time: hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Server Error');
-    }
-  } else {
-
-    const userObj = await WaitingRoom.find({event_id: event_id, user_id: user.user_id});
+  const eventEndTime = hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).adjustedTime;  
+  const userObj = await WaitingRoom.find({event_id: event_id, user_id: user.user_id});
 
     if (userObj[0]) flag = true;
   
@@ -203,8 +177,8 @@ async function eventJoining(req: any, res: any) {
           in_event: true
         };
         const insertedResult = await WaitingRoom.create(data);
-              const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
-        res.send({ user_id: user.user_id, event_time: result.event_time, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
+        const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
+        res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
       } catch (error) {
         console.error(error);
         res.status(500).send('Server Error'); 
@@ -213,10 +187,9 @@ async function eventJoining(req: any, res: any) {
       if (userObj[0].status != "active" || userObj[0].in_event != true) {
         const updateData = await WaitingRoom.findByIdAndUpdate(userObj[0]._id, {status: "active", in_event: true});
       }
-                    const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
-      res.send({ user_id: user.user_id, event_time: result.event_time, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
+      const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
+      res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
     }
-  }
   res.on('finish', () => {
     if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
   });
