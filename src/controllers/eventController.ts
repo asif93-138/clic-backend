@@ -343,6 +343,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         const dataObj = req.body;
         dataObj.event_durations = JSON.parse(dataObj.event_durations);
         dataObj.imgURL = "uploads/" + req.file.filename;
+        dataObj.extension_limit = Number(dataObj.extension_limit);
         const insertResult = await Event.create(dataObj);
         createdEvent = insertResult;
         res.json(insertResult);

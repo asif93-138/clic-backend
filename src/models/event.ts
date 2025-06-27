@@ -6,8 +6,8 @@ export interface IEvent extends Document {
     description: string;
     date_time: string;
     location: string;
-    event_durations?: number[];
-    event_end_time: string;
+    event_durations: number[];
+    extension_limit: number;
 }
 
 const EventSchema: Schema = new Schema(
@@ -17,8 +17,8 @@ const EventSchema: Schema = new Schema(
         description: { type: String, required: true },
         date_time: { type: String, required: true },
         location: { type: String, required: true },
-        event_durations: { type: [Number] },
-        event_end_time: { type: String },
+        event_durations: { type: [Number], required: true },
+        extension_limit: { type: Number, required: true },
     },
     { timestamps: true }
 );

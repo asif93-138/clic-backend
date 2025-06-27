@@ -150,10 +150,7 @@ async function eventJoining(req: any, res: any) {
     res.status(404).json({ message: "Event not found!" });
     return;
   }
-  if (!eventData.event_durations) {
-    res.status(404).json({ message: "Event durations not found!" });
-    return;
-  }
+
   const eventTime = eventData.date_time;
 
   if (hasTimePassedPlusHours((eventTime + ":00Z"), (eventData.event_durations[1] / 60)).hasPassed) {
