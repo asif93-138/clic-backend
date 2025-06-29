@@ -22,6 +22,7 @@ import { upload } from "./middleware/multerConfig";
 import User from "./models/user.model";
 import agenda from "./config/agenda";
 import defineNotificationJob from './jobs/sendNotification';
+import collectFeedback from "./controllers/feedbackCollection";
 
 
 dotenv.config();
@@ -122,12 +123,16 @@ async function liveMatches(data: any) {
   const {event_id, user_id, gender, interested, rejoin} = data;
   if (!rejoin) {
       const historyArr: any[] = [], historyObj = new Set(), potentialMatches = [];
+  
   const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interested, in_event: true});
+  
   const call_historyArr = await CallHistory.find({event_id: event_id});
+  
   for (const history of call_historyArr) {
-    if (history.person_1 == user_id) historyArr.push(history.person_2); historyObj.add(history.person_2);
-    if (history.person_2 == user_id) historyArr.push(history.person_1); historyObj.add(history.person_1);
+    if (history.person_1 == user_id) {historyArr.push(history.person_2); historyObj.add(history.person_2);}
+    if (history.person_2 == user_id) {historyArr.push(history.person_1); historyObj.add(history.person_1);}
   }
+  
   for (const user of interestedGenderArray) {
     if (!historyObj.has(user.user_id)) {
       const userData = await User.findById(user.user_id, "userName imgURL");
@@ -135,8 +140,9 @@ async function liveMatches(data: any) {
     }
   }
   const userData = await User.findById(user_id, "userName imgURL");
-  console.log("######## emission from joining!");
+  
   io.emit(`${event_id}-${gender}-potential-matches`, userData);
+ 
   return {historyArr, potentialMatches};
   }
 }
@@ -387,6 +393,7 @@ app.post("/eventUserApproval", authMiddleware, approveEventUser);
 app.post("/testUpload", authMiddleware, upload.single('testUpload'), uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/notification-register", authMiddleware, pushNotificationUpdate);
+app.post("/submitFeedback", collectFeedback);
 
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
