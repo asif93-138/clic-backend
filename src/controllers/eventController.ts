@@ -480,11 +480,13 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
             const dataObj = req.body;
             dataObj.imgURL = "uploads/" + req.file.filename;
             dataObj.event_durations = JSON.parse(dataObj.event_durations);
+            dataObj.extension_limit = Number(dataObj.extension_limit);
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
             res.json(result);
         } else {
             const dataObj = req.body;
             dataObj.event_durations = JSON.parse(dataObj.event_durations);
+            dataObj.extension_limit = Number(dataObj.extension_limit);
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
             res.json(result);
         }
