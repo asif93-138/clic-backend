@@ -5,7 +5,7 @@ const DateFeedbackSchema = new mongoose.Schema(
     event_id: { type: String, required: true },
     user_id: { type: String, required: true },
     other_user_id: { type: String, required: true },
-    dateRoomId: { type: String, required: true },
+    dateRoomDocId: { type: String, required: true },
     rating: {type: Number},
     comment: {type: String},
   },

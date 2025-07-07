@@ -6,6 +6,7 @@ import EventCancellation from '../models/eventCancellation';
 import CallHistory from '../models/callHistory';
 import Matched from '../models/matched';
 import WaitingRoom from '../models/waitingRoom';
+import FailedClic from '../models/failedClic';
 
 const email = "admin@email.com";
 const password = "admin";
@@ -35,6 +36,7 @@ export async function adminDataEvent(req: Request, res: Response) {
         const callList = await CallHistory.find({event_id: event._id});
         const leftEarly = await CallHistory.find({event_id: event._id, left_early: true});
         const matchList = await Matched.find({event_id: event._id});
+        const failedClic = await FailedClic.find({event_id: event._id});
         const latestDoc = await WaitingRoom.findOne({ event_id: event._id })
             .sort({ updatedAt: -1 }) // Sort by updatedAt descending
             .select('updatedAt')     // Select only the updatedAt field
@@ -49,7 +51,7 @@ matchList.forEach(x => {
             id: event._id, attendees: attendees.length, attendeesM: attendeesM.length, 
             attendeesF: attendeesF.length, approved: approvedList.length, totalCancelled: cancelList.length,
             totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length, 
-            lastExit: latestDoc?.updatedAt || null,
+            failedClic: failedClic.length, lastExit: latestDoc?.updatedAt || null,
             totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length),
             matchCounts: counts
         };

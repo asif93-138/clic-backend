@@ -23,6 +23,7 @@ import User from "./models/user.model";
 import agenda from "./config/agenda";
 import defineNotificationJob from './jobs/sendNotification';
 import collectFeedback from "./controllers/feedbackCollection";
+import FailedClic from "./models/failedClic";
 
 
 dotenv.config();
@@ -181,7 +182,7 @@ async function eventJoining(req: any, res: any) {
         };
         const insertedResult = await WaitingRoom.create(data);
         const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
-        res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
+        res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches, extend_limit: eventData.extension_limit});
       } catch (error) {
         console.error(error);
         res.status(500).send('Server Error'); 
@@ -191,7 +192,7 @@ async function eventJoining(req: any, res: any) {
         const updateData = await WaitingRoom.findByIdAndUpdate(userObj[0]._id, {status: "active", in_event: true});
       }
       const liveMatchesObj =  await liveMatches({event_id, ...user, rejoin })
-      res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches });
+      res.send({ user_id: user.user_id, event_time: eventEndTime, callHistory: liveMatchesObj?.historyArr, potentialMatches: liveMatchesObj?.potentialMatches, extend_limit: eventData.extension_limit});
     }
   res.on('finish', () => {
     if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
@@ -226,6 +227,9 @@ async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
       await DatingRoom.findByIdAndDelete(data._id);
       await CallHistory.findOneAndUpdate({event_id: event_id, person_1: data.pair[0], person_2: data.pair[1]},
          {endedAt: new Date(), left_early: left_early});
+      if (data.extension.length) {
+        await FailedClic.create({event_id: data.event_id, dateRoomDocId: data._id, person_1: data.pair[0], person_2: data.pair[1], requested: data.extension[0]});
+      }
       console.log(`has_left:${data.dateRoomId}`);
       // emit
       io.emit(`has_left:${data.dateRoomId}`);
@@ -267,7 +271,7 @@ app.put('/extend', async (req: any, res: any) => {
         //   person_1: updatedArr[0],
         //   person_2: updatedArr[1],
         // });
-        const filter = {event_id: event_id, person_1: updatedArr[0], person_2: updatedArr[1]};
+        const filter = {event_id: event_id, dateRoomDocId: result._id, person_1: updatedArr[0], person_2: updatedArr[1]};
         const update = {
             $inc: { count: 1 }  // increment count by 1
         };
@@ -342,6 +346,7 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
 
       const callHistoryData = {
         event_id: event_id,
+        dateRoomDocId: insertDateRoomData._id,
         person_1: socketEmission.pair[0],
         person_2: socketEmission.pair[1],
         startedAt: new Date()
@@ -353,8 +358,8 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
       console.log({...socketEmission, timer});
 
       // Emit match event to all users in the event room
-      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer});
-      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer});
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id});
    
      
       console.log('----- pairing function ended -----');
