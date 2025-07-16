@@ -6,8 +6,8 @@ import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
-import { adminDataEvent, adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventApplicationAndApproval, getEventForApp, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
+import { adminDataEvent, adminEventDetails, adminLogin } from "./controllers/adminController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -382,11 +382,11 @@ app.get("/checkUser", checkUsers);
 app.get("/cities", citiesSearchController);
 app.get("/interests", interestsSearchController);
 app.get("/userPools", authMiddleware, getUserPool);
-app.get("/eventUsersApplicationAndApproval", authMiddleware, getEventApplicationAndApproval);
-app.get("/eventUserStatus", authMiddleware, eventUserStatus);
+app.get("/eventUserStatus/:id", authMiddleware, eventUserStatus);
 app.get("/notification-test", pushNotificationTest);
 app.get("/home-page", authMiddleware, homePageData);
 app.get("/admin-event-level-data", authMiddleware, adminDataEvent);
+app.get("/admin-date-level-data/:id", authMiddleware, adminEventDetails)
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);

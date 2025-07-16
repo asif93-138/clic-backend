@@ -26,7 +26,7 @@ export async function adminLogin(req: Request, res: Response): Promise<void> {
 
 export async function adminDataEvent(req: Request, res: Response) {
     const dataObj: { [key: string]: any } = {};
-    const events = await Event.find({ date_time: { $lt: new Date().toISOString() } }, "") as Array<{ _id: any, title: string, date_time: any, event_durations: any }>;
+    const events = await Event.find({ date_time: { $lt: new Date().toISOString() } }, "") as Array<{ _id: any, title: string, date_time: any }>;
     for (const event of events) {
         const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
         const attendees = await WaitingRoom.find({event_id: event._id, status: "inactive"});
@@ -57,4 +57,9 @@ matchList.forEach(x => {
         };
     }
     res.json(dataObj);
+}
+
+export async function adminEventDetails(req: Request, res: Response) {
+    console.log(req.params.id);
+    res.send("Ok");
 }

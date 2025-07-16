@@ -368,15 +368,6 @@ export async function createEvent(req: any, res: Response): Promise<void> {
   // });
 }
 
-export async function getEventApplicationAndApproval(req: Request, res: Response): Promise<void> {
-    try {
-        const result = await eventUser.find();
-        res.json(result);
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
-    }
-}
-
 export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
         const { eventId, btnTxt, status } = req.body;
@@ -497,7 +488,7 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
 
 export async function eventUserStatus(req: any, res: Response): Promise<void> {
     try {
-        const event_id = req.body.event_id;
+        const event_id = req.params.id;
         const user_id = req.user;
         const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
         res.json({status: eventUserResult?.status});
