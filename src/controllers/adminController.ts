@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { generateToken } from '../utils/jwt';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
-import EventCancellation from '../models/eventCancellation';
 import CallHistory from '../models/callHistory';
 import Matched from '../models/matched';
 import WaitingRoom from '../models/waitingRoom';
@@ -32,7 +31,7 @@ export async function adminDataEvent(req: Request, res: Response) {
         const attendees = await WaitingRoom.find({event_id: event._id, status: "inactive"});
         const attendeesM = await WaitingRoom.find({event_id: event._id, status: "inactive", gender: "M"});
         const attendeesF = await WaitingRoom.find({event_id: event._id, status: "inactive", gender: "F"});
-        const cancelList = await EventCancellation.find({event_id: event._id});
+        
         const callList = await CallHistory.find({event_id: event._id});
         const leftEarly = await CallHistory.find({event_id: event._id, left_early: true});
         const matchList = await Matched.find({event_id: event._id});
@@ -49,7 +48,7 @@ matchList.forEach(x => {
 });
         dataObj[event._id] = {
             id: event._id, attendees: attendees.length, attendeesM: attendeesM.length, 
-            attendeesF: attendeesF.length, approved: approvedList.length, totalCancelled: cancelList.length,
+            attendeesF: attendeesF.length, approved: approvedList.length,
             totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length, 
             failedClic: failedClic.length, lastExit: latestDoc?.updatedAt || null,
             totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length),

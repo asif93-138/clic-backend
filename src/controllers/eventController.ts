@@ -86,9 +86,11 @@ export async function getAllEvents(req: Request, res: Response): Promise<void> {
   return counts;
 };
 const genderCounts = await getGenderCountsByEvent(event._id.toString());
+const cancelList = await EventCancellation.find({event_id: event._id});
           dataObj.approvedGenderC = genderCounts;
           dataObj.pending = pendingList.length;
           dataObj.approved = approvedList.length;
+          dataObj.totalCancelled = cancelList.length;
           result.push(dataObj);
         }
         res.json(result);
@@ -101,7 +103,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
         const result = await Event.findOne({ _id: req.params.id });
         const newResult = await eventUser.find({ event_id: req.params.id });
-        const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
+        const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, { password: 0, expoPushToken: 0 });
         const pending_members: any = []; const approved_members: any = [];
         newResult.forEach(x => {
             if (x.status == 'approved') {
