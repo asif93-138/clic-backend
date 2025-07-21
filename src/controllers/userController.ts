@@ -6,6 +6,7 @@ import { generateToken } from '../utils/jwt';
 import User from '../models/user.model';
 import { sendEmail } from '../utils/sendEmail';
 import sendPushNotificationNow from '../utils/sendPushNotificationNow';
+import verificationCode from '../models/verificationCode';
 
 // cloudinary.config({
 //     cloud_name: "dganhxhid",
@@ -135,6 +136,27 @@ export const sendEmailC = async (req: Request, res: Response) => {
     );
 
     res.status(201).json({ message: 'email sent.' });
+  } catch (err) {
+    res.status(500).json({ message: 'email failed.' });
+  }
+};
+
+export const emailVerificationC = async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const randomCode = Math.floor(Math.random() * (999999 - 100000 + 1) ) + 100000;
+  
+  try {
+    const result = await verificationCode.create({email: email, code: randomCode});
+    await sendEmail(
+      email,
+      'Verify your email (Clic)',
+      `Your code : ${randomCode}`
+    );
+    setTimeout(async () => {
+      await verificationCode.findByIdAndDelete(result._id);
+    }, (1000 * 60 * 5));
+
+    res.status(200).json({ message: 'email sent.' });
   } catch (err) {
     res.status(500).json({ message: 'email failed.' });
   }
