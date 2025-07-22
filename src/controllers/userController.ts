@@ -147,7 +147,7 @@ export const emailVerificationC = async (req: Request, res: Response) => {
   
   try {
     const result = await verificationCode.create({email: email, code: randomCode});
-    await sendEmail(
+    const emailResult = await sendEmail(
       email,
       'Verify your email (Clic)',
       `Your code : ${randomCode}`
@@ -156,11 +156,24 @@ export const emailVerificationC = async (req: Request, res: Response) => {
       await verificationCode.findByIdAndDelete(result._id);
     }, (1000 * 60 * 5));
 
-    res.status(200).json({ message: 'email sent.' });
+    if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });
+    else res.status(500).json({ message: 'email failed.' });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: 'email failed.' });
   }
 };
+
+export async function matchVerificationCode(req: Request, res: Response) {
+    const {email, code} = req.body;
+    const checkCode = await verificationCode.find({email: email});
+    if (checkCode[checkCode.length - 1].code == code) {
+        const user = await User.findOne({email: email});
+        if (user) res.status(200).send("user exists!");
+        else res.status(201).send("new user");
+    }
+    else res.status(401).send("Wrong");
+}
 
 export async function pushNotificationUpdate(req: any, res: Response): Promise<void> {
     try {

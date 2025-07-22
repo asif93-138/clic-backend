@@ -13,7 +13,7 @@ export const sendEmail = async (
   subject: string,
   text: string,
   html?: string,
-): Promise<void> => {
+) => {
   const mailOptions = {
     from: process.env.EMAIL,
     to,
@@ -23,7 +23,8 @@ export const sendEmail = async (
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    return result;
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;

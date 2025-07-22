@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
-import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC } from "./controllers/userController";
+import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminDataEvent, adminEventDetails, adminLogin } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
@@ -397,7 +397,8 @@ app.post("/eventUserApproval", authMiddleware, approveEventUser);
 // app.post("/eventUserReject", authMiddleware, rejectEventUser);
 app.post("/testUpload", authMiddleware, upload.single('testUpload'), uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
-app.post("/email-verification-code", authMiddleware, emailVerificationC);
+app.post("/email-verification-code", emailVerificationC);
+app.post("/match-verification-code", matchVerificationCode);
 app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 app.post("/submitFeedback", collectFeedback);
 
@@ -408,3 +409,9 @@ app.delete("/deletePhoto", authMiddleware, deletePhoto);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// async function testQuery() {
+//   const result = await User.find({gender: "Male"});
+//   console.log(result[result.length - 1]);
+// }
+// testQuery();
