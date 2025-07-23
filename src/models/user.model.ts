@@ -26,7 +26,7 @@ const UserSchema: Schema = new Schema(
     city: { type: String, required: true },
     approved: { type: String, default: 'pending' },
     expoPushToken: { type: String, default: '' },
-    ques_ans: { type: Array },
+    ques_ans: { type: Object },
     interests: { type: [String] },
   },
   { timestamps: true }

@@ -92,7 +92,7 @@ export async function checkUsers(req: Request, res: Response): Promise<void> {
 
 export async function createUser(req: Request, res: Response): Promise<void> {
     try {
-
+        console.log(req.file); console.log(req.body);
         if (!req.file) {
             res.status(400).json({ message: 'No file uploaded' });
             return;
@@ -146,13 +146,14 @@ export const emailVerificationC = async (req: Request, res: Response) => {
   const randomCode = Math.floor(Math.random() * (999999 - 100000 + 1) ) + 100000;
   
   try {
-    const result = await verificationCode.create({email: email, code: randomCode});
-    const emailResult = await sendEmail(
-      email,
-      'Verify your email (Clic)',
-      `Your code : ${randomCode}`
-    );
-    if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });
+    // const result = await verificationCode.create({email: email, code: randomCode});
+    const result = await verificationCode.findOneAndUpdate({email}, {code: randomCode, expireAt: new Date(Date.now() + 5 * 60 * 1000)}, {upsert: true, new: true});
+    // const emailResult = await sendEmail(
+    //   email,
+    //   'Verify your email (Clic)',
+    //   `Your code : ${randomCode}`
+    // );
+    if (result._id) res.status(200).json({ message: 'email sent.' }); //  && emailResult.accepted[0] == email
     else res.status(500).json({ message: 'email failed.' });
   } catch (err) {
     console.log(err);
@@ -162,9 +163,9 @@ export const emailVerificationC = async (req: Request, res: Response) => {
 
 export async function matchVerificationCode(req: Request, res: Response) {
     const {email, code} = req.body;
-    const checkCode = await verificationCode.find({email: email});
-    if (checkCode[checkCode.length - 1].code == code) {
-        const user = await User.findOne({email: email});
+    const checkCode = await verificationCode.findOne({email});
+    if (checkCode?.code == code) {
+        const user = await User.findOne({email});
         if (user) res.status(200).send("user exists!");
         else res.status(201).send("new user");
     }
