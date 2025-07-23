@@ -15,15 +15,18 @@ export interface IUser extends Document {
 
 const UserSchema: Schema = new Schema(
   {
+    firstName: {type: String, required: true},
+    lastName: {type: String, required: true},
     userName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     imgURL: { type: String, required: true },
+    dateOfBirth: {type: Date, require: true},
     gender: { type: String, required: true },
     city: { type: String, required: true },
     approved: { type: String, default: 'pending' },
     expoPushToken: { type: String, default: '' },
-    ques_ans: { type: Object },
+    ques_ans: { type: Array },
     interests: { type: [String] },
   },
   { timestamps: true }

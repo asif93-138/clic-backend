@@ -152,10 +152,6 @@ export const emailVerificationC = async (req: Request, res: Response) => {
       'Verify your email (Clic)',
       `Your code : ${randomCode}`
     );
-    setTimeout(async () => {
-      await verificationCode.findByIdAndDelete(result._id);
-    }, (1000 * 60 * 5));
-
     if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });
     else res.status(500).json({ message: 'email failed.' });
   } catch (err) {
