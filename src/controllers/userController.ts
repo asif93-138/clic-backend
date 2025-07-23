@@ -108,6 +108,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
         res.json({newUser, token});
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
+        res.status(400).send("something went wrong.");
     }
 }
 
@@ -148,12 +149,13 @@ export const emailVerificationC = async (req: Request, res: Response) => {
   try {
     // const result = await verificationCode.create({email: email, code: randomCode});
     const result = await verificationCode.findOneAndUpdate({email}, {code: randomCode, expireAt: new Date(Date.now() + 5 * 60 * 1000)}, {upsert: true, new: true});
-    // const emailResult = await sendEmail(
-    //   email,
-    //   'Verify your email (Clic)',
-    //   `Your code : ${randomCode}`
-    // );
-    if (result._id) res.status(200).json({ message: 'email sent.' }); //  && emailResult.accepted[0] == email
+    const emailResult = await sendEmail(
+      email,
+      'Verify your email (Clic Club)',
+      `Your code : ${randomCode}`
+    );
+    console.log(emailResult);
+    if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });
     else res.status(500).json({ message: 'email failed.' });
   } catch (err) {
     console.log(err);
