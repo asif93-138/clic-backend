@@ -154,7 +154,6 @@ export const emailVerificationC = async (req: Request, res: Response) => {
       'Verify your email (Clic Club)',
       `Your code : ${randomCode}`
     );
-    console.log(emailResult);
     if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });
     else res.status(500).json({ message: 'email failed.' });
   } catch (err) {
