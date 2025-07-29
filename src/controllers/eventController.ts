@@ -631,3 +631,18 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
 
   return result;
 }
+
+export const getFutureEvents = async (req : Request, res: Response) => {
+  const nowUTCString = new Date().toISOString().slice(0, 16); // e.g., '2025-07-29T10:30'
+
+  try {
+    const futureEvents = await Event.find({
+      date_time: { $gt: nowUTCString }
+    }).select("title imgURL description date_time location").exec();
+    
+    res.json(futureEvents);
+  } catch (err) {
+    console.log("Failed to fetch future events: " + err);
+    res.status(500).json(err);
+  }
+};

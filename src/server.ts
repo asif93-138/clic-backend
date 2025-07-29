@@ -7,7 +7,7 @@ import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminDataEvent, adminEventDetails, adminLogin } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getFutureEvents, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -386,7 +386,8 @@ app.get("/eventUserStatus/:id", authMiddleware, eventUserStatus);
 app.get("/notification-test", pushNotificationTest);
 app.get("/home-page", authMiddleware, homePageData);
 app.get("/admin-event-level-data", authMiddleware, adminDataEvent);
-app.get("/admin-date-level-data/:id", authMiddleware, adminEventDetails)
+app.get("/admin-date-level-data/:id", authMiddleware, adminEventDetails);
+app.get("/future-events-website", getFutureEvents);
 
 app.post("/register", upload.single('profilePicture'), createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
@@ -409,9 +410,3 @@ app.delete("/deletePhoto", authMiddleware, deletePhoto);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-
-// async function testQuery() {
-//   const result = await User.find({gender: "Male"});
-//   console.log(result[result.length - 1]);
-// }
-// testQuery();
