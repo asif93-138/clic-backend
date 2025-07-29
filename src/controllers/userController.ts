@@ -166,11 +166,9 @@ export async function matchVerificationCode(req: Request, res: Response) {
     const {email, code} = req.body;
     const checkCode = await verificationCode.findOne({email});
     if (checkCode?.code == code) {
-        const user = await User.findOne({email});
-        if (user) res.status(200).send("user exists!");
-        else res.status(201).send("new user");
+        res.status(201).send("new user");
     }
-    else res.status(401).send("Wrong");
+    else {res.status(401).send("Wrong");}
 }
 
 export async function pushNotificationUpdate(req: any, res: Response): Promise<void> {
