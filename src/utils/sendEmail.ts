@@ -1,7 +1,10 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  // service: 'gmail',
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: true,
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD,
@@ -15,7 +18,7 @@ export const sendEmail = async (
   html?: string,
 ) => {
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: "Clic Club " + "<" + process.env.EMAIL + ">",
     to,
     subject,
     text,
