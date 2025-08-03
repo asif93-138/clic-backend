@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema , Document} from "mongoose"; 
 
 export interface IUser extends Document {
     userName: string;
@@ -7,6 +7,11 @@ export interface IUser extends Document {
     imgURL: string;
     gender: string;
     city: string;
+    occupation: string;
+    where_live : string;
+    where_from : string;
+    cities_frequent : string;
+    about : string;
     approved: string;
     expoPushToken?: string;
     ques_ans?: object;
@@ -24,9 +29,14 @@ const UserSchema: Schema = new Schema(
     dateOfBirth: {type: Date, require: true},
     gender: { type: String, required: true },
     city: { type: String, required: true },
+    occupation: {type: String},
+    where_live : {type: String},
+    where_from : {type: String, required: true},
+    cities_frequent : {type: String},
+    about : {type: String},
     approved: { type: String, default: 'pending' },
     expoPushToken: { type: String, default: '' },
-    ques_ans: { type: Object },
+    ques_ans: { type: Object, required: true },
     interests: { type: [String] },
   },
   { timestamps: true }
