@@ -131,9 +131,8 @@ export const sendEmailC = async (req: Request, res: Response) => {
   try {
     await sendEmail(
       email,
-      'New pool created!',
-      `Hello ${username}, New pool arrived for you!`, 
-      `<h1>Hello ${username}</h1><p>Check your upcoming pools!</p>`
+      'Nodemailer Testing (Final)',
+      `Hello ${username}, All tests are successful!`
     );
 
     res.status(201).json({ message: 'email sent.' });
