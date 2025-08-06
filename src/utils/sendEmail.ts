@@ -72,10 +72,6 @@ await new Promise<void>((resolve, reject) => {
   );
 });
 
-console.log('Email copied to Sent folder.');
-await connection.end();
-
-
     console.log('Email copied to Sent folder.');
     connection.end();
     return result;
