@@ -97,7 +97,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
             res.status(400).json({ message: 'No file uploaded' });
             return;
         }
-
+        // res.send("OK");
         const dataObj = req.body;
         dataObj.imgURL = "uploads/" + req.file.filename;
         const hashedPassword = await bcrypt.hash(dataObj.password, 10);
@@ -112,6 +112,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
             `<img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" width="100" />
             <p>Name: ${req.body.userName}</p>
             <p>Email: ${req.body.email}</p>
+            <p>Date of Birth: ${req.body.dateOfBirth}</p>
             <p>Occupation: ${req.body.occupation}</p>
             <p>Gender: ${req.body.gender}</p>
             <p>From (city): ${req.body.where_from}</p>

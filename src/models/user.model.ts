@@ -1,20 +1,23 @@
-import mongoose, { Schema , Document} from "mongoose"; 
+import mongoose, { Schema , Document, Date} from "mongoose"; 
 
 export interface IUser extends Document {
+    firstName: string;  
+    lastName: string; 
     userName: string;
     email: string;
     password: string;
     imgURL: string;
+    dateOfBirth: string;
     gender: string;
     city: string;
-    occupation: string;
-    where_live : string;
+    occupation?: string;
+    where_live?: string;
     where_from : string;
-    cities_frequent : string;
-    about : string;
+    cities_frequent?: string;
+    about?: string;
     approved: string;
     expoPushToken?: string;
-    ques_ans?: object;
+    ques_ans: object;
     interests?: string[];
 }
 
@@ -26,7 +29,7 @@ const UserSchema: Schema = new Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     imgURL: { type: String, required: true },
-    dateOfBirth: {type: Date, require: true},
+    dateOfBirth: {type: String, require: true},
     gender: { type: String, required: true },
     city: { type: String, required: true },
     occupation: {type: String},
