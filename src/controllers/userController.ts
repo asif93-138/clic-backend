@@ -129,12 +129,14 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 
 export async function updateUser(req: Request, res: Response): Promise<void> {
     try {
-        if (!req.params || !req.params.id) {
-            res.status(400).json({ message: 'User ID is required' });
+        if (!req.query || !req.query.email) {
+            res.status(400).json({ message: 'User email is required' });
             return;
         }
-        const result = await User.findByIdAndUpdate(req.params.id, req.body);
-        res.json(result);
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        const result = await User.findOneAndUpdate({email: req.query.email}, {password: hashedPassword});
+        if (result?._id) res.status(200).send("ok");
+        else res.status(400).send("wrong");
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -157,7 +159,7 @@ export const sendEmailC = async (req: Request, res: Response) => {
 };
 
 export const emailVerificationC = async (req: Request, res: Response) => {
-  const { email } = req.body;
+  const { email, fp } = req.body;
   const randomCode = Math.floor(Math.random() * (999999 - 100000 + 1) ) + 100000;
   
   try {
@@ -165,7 +167,7 @@ export const emailVerificationC = async (req: Request, res: Response) => {
     const result = await verificationCode.findOneAndUpdate({email}, {code: randomCode, expireAt: new Date(Date.now() + 5 * 60 * 1000)}, {upsert: true, new: true});
     const emailResult = await sendEmail(
       email,
-      'Verify your email (Clic Club)',
+      fp === "yes" ? "Reset code for password (Clic Club)" : 'Verify your email (Clic Club)',
       `Your code : ${randomCode}`
     );
     if (result._id && emailResult.accepted[0] == email) res.status(200).json({ message: 'email sent.' });

@@ -403,7 +403,7 @@ app.post("/match-verification-code", matchVerificationCode);
 app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 app.post("/submitFeedback", collectFeedback);
 
-app.put("/user/:id", authMiddleware, updateUser);
+app.put("/reset_pass", updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
 
