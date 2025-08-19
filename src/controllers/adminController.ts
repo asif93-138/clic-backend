@@ -8,6 +8,7 @@ import WaitingRoom from '../models/waitingRoom';
 import FailedClic from '../models/failedClic';
 import User from '../models/user.model';
 import DateFeedback from '../models/dateFeedback';
+import notification from '../models/notification';
 
 const email = "admin@email.com";
 const password = "admin";
@@ -101,4 +102,22 @@ export async function adminEventDetails(req: Request, res: Response) {
         callData.push(data);
     });
     res.json({userData, userArr, callData});
+}
+
+export async function notificationCount(req: Request, res: Response) {
+    const notificationCount = await notification.countDocuments({read: false});
+    res.json({notificationCount});
+}
+export async function getAllNotifications(req: Request, res: Response) {
+    const notifications = await notification.find({});
+    res.json(notifications);
+}
+
+export async function readNotification(req: Request, res: Response) {
+    const notificationRead = await notification.findByIdAndUpdate(req.params.id, {read: true});
+    res.json(notificationRead);
+}
+export async function deleteUnreadNotifications(req: Request, res: Response) {
+    const deleted = await notification.deleteMany({read: true});
+    res.json(deleted);
 }

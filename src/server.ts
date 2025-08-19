@@ -6,7 +6,7 @@ import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
-import { adminDataEvent, adminEventDetails, adminLogin } from "./controllers/adminController";
+import { adminDataEvent, adminEventDetails, adminLogin, deleteUnreadNotifications, getAllNotifications, notificationCount, readNotification } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getFutureEvents, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
@@ -24,6 +24,7 @@ import agenda from "./config/agenda";
 import defineNotificationJob from './jobs/sendNotification';
 import collectFeedback from "./controllers/feedbackCollection";
 import FailedClic from "./models/failedClic";
+import { cloudinaryUpload } from "./middleware/cloudinaryUpload";
 
 
 dotenv.config();
@@ -387,25 +388,29 @@ app.get("/notification-test", pushNotificationTest);
 app.get("/home-page", authMiddleware, homePageData);
 app.get("/admin-event-level-data", authMiddleware, adminDataEvent);
 app.get("/admin-date-level-data/:id", authMiddleware, adminEventDetails);
+app.get("/unread-notification-count", authMiddleware, notificationCount);
+app.get("/notifications", authMiddleware, getAllNotifications);
 app.get("/future-events-website", getFutureEvents);
 
-app.post("/register", upload.single('profilePicture'), createUser);
-app.post("/event", authMiddleware, upload.single('eventBanner'), createEvent);
+app.post("/register", upload.single('profilePicture'), cloudinaryUpload, createUser);
+app.post("/event", authMiddleware, upload.single('eventBanner'), cloudinaryUpload, createEvent);
 app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 // app.post("/eventUserReject", authMiddleware, rejectEventUser);
-app.post("/testUpload", authMiddleware, upload.single('testUpload'), uploadTesting);
+app.post("/testUpload", authMiddleware, upload.single('testUpload'),cloudinaryUpload, uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/email-verification-code", emailVerificationC);
 app.post("/match-verification-code", matchVerificationCode);
 app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 app.post("/submitFeedback", collectFeedback);
+app.post("/mark-notification-read/:id", authMiddleware, readNotification);
 
 app.put("/reset_pass", updateUser);
-app.put("/event/:id", authMiddleware, upload.single('eventBanner'), updateEvent);
+app.put("/event/:id", authMiddleware, upload.single('eventBanner'), cloudinaryUpload, updateEvent);
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
+app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);

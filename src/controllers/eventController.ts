@@ -9,7 +9,7 @@ import { scheduleJob } from '../utils/scheduler';
 import { Types } from "mongoose";
 import EventCancellation from '../models/eventCancellation';
 import { sendEmail } from '../utils/sendEmail';
-// import { hasTimePassedPlus3Hours } from '../server';
+import notification from '../models/notification';
 
 cloudinary.config({
     cloud_name: "dganhxhid",
@@ -378,6 +378,18 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
             dataObj_1.status = 'pending';
             const insertResult = await eventUser.create(dataObj_1);
             if (insertResult._id) {
+                        const eventData = await Event.findById(eventId, 'title');
+                        const userData = await User.findById(req.user, 'userName');
+                        const notificationData = new notification({
+                            type: "rsvp",
+                            data: {
+                                event_id: eventId,
+                                user_id: req.user,
+                                eventTitle: eventData?.title,
+                                userName: userData?.userName
+                            }
+                        });
+                        await notificationData.save();
                 res.json({ btnTxt: 'pending' });
             } else {
                 res.status(400).json({ message: "failed!" });
