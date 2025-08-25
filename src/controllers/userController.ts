@@ -95,20 +95,20 @@ export async function createUser(req: Request, res: Response): Promise<void> {
         const newUser = new User(dataObj);
         await newUser.save();
         const token = generateToken({ id: newUser._id });
-        // await sendEmail(
-        //     "thehumanchemistrypilot@gmail.com",
-        //     "New member registered",
-        //     "Visit admin panel for more details!",
-        //     `<img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" width="100" />
-        //     <p>Name: ${req.body.userName}</p>
-        //     <p>Email: ${req.body.email}</p>
-        //     <p>Date of Birth: ${req.body.dateOfBirth}</p>
-        //     <p>Occupation: ${req.body.occupation}</p>
-        //     <p>Gender: ${req.body.gender}</p>
-        //     <p>From (city): ${req.body.where_from}</p>
-        //     <p>Lives (city): ${req.body.where_live}</p>
-        //     <p><b>Visit admin panel for more details!</b></p>`    
-        // );
+        await sendEmail(
+            "thehumanchemistrypilot@gmail.com",
+            "New member registered",
+            "Visit admin panel for more details!",
+            `<img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" width="100" />
+            <p>Name: ${req.body.userName}</p>
+            <p>Email: ${req.body.email}</p>
+            <p>Date of Birth: ${req.body.dateOfBirth}</p>
+            <p>Occupation: ${req.body.occupation}</p>
+            <p>Gender: ${req.body.gender}</p>
+            <p>From (city): ${req.body.where_from}</p>
+            <p>Lives (city): ${req.body.where_live}</p>
+            <p><b>Visit <a href="https://skyblue-alpaca-975080.hostingersite.com/">admin panel</a> for more details!</b></p>`    
+        );
         const notificationData = new notification({
             type: "signup",
             data: {
