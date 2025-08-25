@@ -125,7 +125,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     }
 }
 
-export async function updateUser(req: Request, res: Response): Promise<void> {
+export async function updatePass(req: Request, res: Response): Promise<void> {
     try {
         if (!req.query || !req.query.email) {
             res.status(400).json({ message: 'User email is required' });
@@ -135,6 +135,19 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
         const result = await User.findOneAndUpdate({email: req.query.email}, {password: hashedPassword});
         if (result?._id) res.status(200).send("ok");
         else res.status(400).send("wrong");
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
+export async function updateUser(req: Request, res: Response): Promise<void> {
+    try {
+        if (!req.params || !req.params.id) {
+            res.status(400).json({ message: 'User ID is required' });
+            return;
+        }
+        const result = await User.findByIdAndUpdate(req.params.id, req.body);
+        res.json(result);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }

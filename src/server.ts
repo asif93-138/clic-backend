@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import connectDB from "./config/dbConfig";
 import initialController from "./controllers/initialController";
-import { createUser, checkUsers, getAllUsers, getUser, updateUser, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode } from "./controllers/userController";
+import { createUser, checkUsers, getAllUsers, getUser, updatePass, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode, updateUser } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminDataEvent, adminEventDetails, adminLogin, deleteUnreadNotifications, getAllNotifications, notificationCount, readNotification } from "./controllers/adminController";
 import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, getAllEvents, getEvent, getEventForApp, getFutureEvents, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
@@ -407,7 +407,8 @@ app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 app.post("/submitFeedback", collectFeedback);
 app.post("/mark-notification-read/:id", authMiddleware, readNotification);
 
-app.put("/reset_pass", updateUser);
+app.put("/reset_pass", updatePass);
+app.put("/user/:id", authMiddleware, updateUser);
 app.put("/event/:id", authMiddleware, upload.single('eventBanner'), cloudinaryUpload, updateEvent);
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
 app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);
