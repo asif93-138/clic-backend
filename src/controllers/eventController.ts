@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import Event from '../models/event';
 import eventUser from '../models/eventUser';
@@ -10,12 +9,9 @@ import { Types } from "mongoose";
 import EventCancellation from '../models/eventCancellation';
 import { sendEmail } from '../utils/sendEmail';
 import notification from '../models/notification';
+import cloudinary from '../utils/cloudinary';
 
-cloudinary.config({
-    cloud_name: "dganhxhid",
-    api_key: "672381925111413",
-    api_secret: "KYxtoS3wN2T8eLq0qUP5USr7XQc",
-});
+
 
 
 export async function getAllEvents(req: Request, res: Response): Promise<void> {
@@ -345,6 +341,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
         const dataObj = req.body;
         dataObj.event_durations = JSON.parse(dataObj.event_durations);
         dataObj.imgURL = "uploads/" + req.file.filename;
+        dataObj.cloud_imgURL = req.file.cloudinaryUrl;
         dataObj.extension_limit = Number(dataObj.extension_limit);
         const insertResult = await Event.create(dataObj);
         createdEvent = insertResult;
@@ -474,16 +471,18 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
 
         if (req.file) {
             // console.log(req.file);
-            // // Upload to Cloudinary
-            // const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
-            //     folder: 'your_folder_name', // Optional: specify a folder in Cloudinary
-            // });
 
             // Delete previous file from local storage
             fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
 
+            // Delete previous file from cloud
+            const parts = req.body.cloud_imgURL.split("/");
+            const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
+            await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+
             const dataObj = req.body;
             dataObj.imgURL = "uploads/" + req.file.filename;
+            dataObj.cloud_imgURL = req.file.cloudinaryUrl;
             dataObj.event_durations = JSON.parse(dataObj.event_durations);
             dataObj.extension_limit = Number(dataObj.extension_limit);
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
@@ -513,12 +512,22 @@ export async function eventUserStatus(req: any, res: Response): Promise<void> {
 
 export async function uploadTesting(req: Request, res: Response) {
     console.log(req.file);
-    res.status(200).json({path: req.file?.path});
+    res.status(200).json({file: req.file});
 }
 
 export async function deletePhoto(req: any, res: Response) {
-    fs.unlinkSync(req.query.data);
+  try {
+    // I:\\clic-server\\uploads\\1756195343323-356631876.jpg
+    // Example URL: https://res.cloudinary.com/demo/image/upload/v1234567890/my_app_uploads/abc123.png
+    const parts = req.body.cloud_imgURL.split("/");
+    const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
+    await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+    fs.unlinkSync(req.body.file_path);
     res.status(200).send("deleted!");
+  }
+  catch (error) {
+    console.error("Cloudinary error", error);
+  }
 }
 
 export async function homePageData(req: any, res: Response) {

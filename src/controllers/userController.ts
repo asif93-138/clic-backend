@@ -80,7 +80,7 @@ export async function checkUsers(req: Request, res: Response): Promise<void> {
 }
 
 
-export async function createUser(req: Request, res: Response): Promise<void> {
+export async function createUser(req: any, res: Response): Promise<void> {
     try {
         // console.log(req.file); console.log(req.body);
         if (!req.file) {
@@ -90,6 +90,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
         // res.send("OK");
         const dataObj = req.body;
         dataObj.imgURL = "uploads/" + req.file.filename;
+        dataObj.cloud_imgURL = req.file.cloudinaryUrl;
         const hashedPassword = await bcrypt.hash(dataObj.password, 10);
         dataObj.password = hashedPassword;
         const newUser = new User(dataObj);

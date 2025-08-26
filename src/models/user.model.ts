@@ -7,6 +7,7 @@ export interface IUser extends Document {
     email: string;
     password: string;
     imgURL: string;
+    cloud_imgURL: string;
     dateOfBirth: string;
     gender: string;
     city: string;
@@ -29,6 +30,7 @@ const UserSchema: Schema = new Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     imgURL: { type: String, required: true },
+    cloud_imgURL: { type: String, required: true },
     dateOfBirth: {type: String, require: true},
     gender: { type: String, required: true },
     city: { type: String, required: true },
