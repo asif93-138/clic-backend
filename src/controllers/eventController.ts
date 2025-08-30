@@ -510,6 +510,17 @@ export async function eventUserStatus(req: any, res: Response): Promise<void> {
     }
 }
 
+export async function eventUserStatusAdmin(req: Request, res: Response): Promise<void> {
+    try {
+        const event_id = req.query.event_id;
+        const user_id = req.query.user_id;
+        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
+        res.json({status: eventUserResult?.status});
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function uploadTesting(req: Request, res: Response) {
     console.log(req.file);
     res.status(200).json({file: req.file});

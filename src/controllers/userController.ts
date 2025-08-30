@@ -31,6 +31,16 @@ export async function getUser(req: any, res: Response): Promise<void> {
     }
 }
 
+export async function getUserData(req: Request, res: Response): Promise<void> {
+    try {
+        // Optional: Check if the database is accessible
+        const user = await User.findOne({ _id: req.params.id }, { password: 0 });
+        res.json(user);
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export async function getUserPP(req: any, res: Response): Promise<void> {
     try {
         // Optional: Check if the database is accessible
