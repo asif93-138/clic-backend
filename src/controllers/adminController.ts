@@ -30,14 +30,14 @@ export async function adminDataEvent(req: Request, res: Response) {
     const dataObj: { [key: string]: any } = {};
     const events = await Event.find({ date_time: { $lt: new Date().toISOString() } }, "") as Array<{ _id: any, title: string, date_time: any }>;
     for (const event of events) {
-        const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
-        const attendees = await WaitingRoom.find({event_id: event._id});
-        const attendeesM = await WaitingRoom.find({event_id: event._id, gender: "M"});
-        const attendeesF = await WaitingRoom.find({event_id: event._id, gender: "F"});
-        const callList = await CallHistory.find({event_id: event._id});
-        const leftEarly = await CallHistory.find({event_id: event._id, left_early: true});
+        const approvedList = await eventUser.countDocuments({event_id: event._id, status: "approved"});
+        const attendees = await WaitingRoom.countDocuments({event_id: event._id});
+        const attendeesM = await WaitingRoom.countDocuments({event_id: event._id, gender: "M"});
+        const attendeesF = await WaitingRoom.countDocuments({event_id: event._id, gender: "F"});
+        const callList = await CallHistory.countDocuments({event_id: event._id});
+        const leftEarly = await CallHistory.countDocuments({event_id: event._id, left_early: true});
         const matchList = await Matched.find({event_id: event._id});
-        const failedClic = await FailedClic.find({event_id: event._id});
+        const failedClic = await FailedClic.countDocuments({event_id: event._id});
         const latestDoc = await WaitingRoom.findOne({ event_id: event._id })
             .sort({ updatedAt: -1 }) // Sort by updatedAt descending
             .select('updatedAt')     // Select only the updatedAt field
@@ -49,11 +49,11 @@ matchList.forEach(x => {
     else counts[x.count] = 1;
 });
         dataObj[event._id] = {
-            id: event._id, attendees: attendees.length, attendeesM: attendeesM.length, 
-            attendeesF: attendeesF.length, approved: approvedList.length,
-            totalCall: callList.length, totalMatch: matchList.length, leftEarly: leftEarly.length, 
-            failedClic: failedClic.length, lastExit: latestDoc?.updatedAt || null,
-            totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList.length - attendees.length),
+            id: event._id, attendees: attendees, attendeesM: attendeesM, 
+            attendeesF: attendeesF, approved: approvedList,
+            totalCall: callList, totalMatch: matchList.length, leftEarly: leftEarly, 
+            failedClic: failedClic, lastExit: latestDoc?.updatedAt || null,
+            totalExts: matchList.reduce((x, y) => x + y.count, 0), noShows: (approvedList - attendees),
             matchCounts: counts
         };
     }

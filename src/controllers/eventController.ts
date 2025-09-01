@@ -9,19 +9,12 @@ import { Types } from "mongoose";
 import EventCancellation from '../models/eventCancellation';
 import { sendEmail } from '../utils/sendEmail';
 import notification from '../models/notification';
+import WaitingRoom from '../models/waitingRoom';
+import CallHistory from '../models/callHistory';
+import FailedClic from '../models/failedClic';
+import Matched from '../models/matched';
 import cloudinary from '../utils/cloudinary';
 
-
-
-
-export async function getAllEvents(req: Request, res: Response): Promise<void> {
-    try {
-        const result: any[] = [];
-        const events: any = await Event.find();
-        for (const event of events) {
-          const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
-          const pendingList = await eventUser.find({event_id: event._id, status: "pending"});
-          const approvedList = await eventUser.find({event_id: event._id, status: "approved"});
           const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
     // 1) Match only the approved EventUser docs for the given event_id
@@ -81,12 +74,23 @@ export async function getAllEvents(req: Request, res: Response): Promise<void> {
 
   return counts;
 };
+
+
+export async function getAllEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const result: any[] = [];
+        const events: any = await Event.find();
+        for (const event of events) {
+          const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
+          const pendingList = await eventUser.countDocuments({event_id: event._id, status: "pending"});
+          const approvedList = await eventUser.countDocuments({event_id: event._id, status: "approved"});
+
 const genderCounts = await getGenderCountsByEvent(event._id.toString());
-const cancelList = await EventCancellation.find({event_id: event._id});
+const cancelList = await EventCancellation.countDocuments({event_id: event._id});
           dataObj.approvedGenderC = genderCounts;
-          dataObj.pending = pendingList.length;
-          dataObj.approved = approvedList.length;
-          dataObj.totalCancelled = cancelList.length;
+          dataObj.pending = pendingList;
+          dataObj.approved = approvedList;
+          dataObj.totalCancelled = cancelList;
           result.push(dataObj);
         }
         res.json(result);
@@ -97,7 +101,38 @@ const cancelList = await EventCancellation.find({event_id: event._id});
 
 export async function getEvent(req: Request, res: Response): Promise<void> {
     try {
-        const result = await Event.findOne({ _id: req.params.id });
+        const resultOld = await Event.findOne({ _id: req.params.id });
+        const result: any = resultOld!.toObject();
+        const genderCounts = await getGenderCountsByEvent(req.params.id);
+        const cancelList = await EventCancellation.countDocuments({event_id: req.params.id});
+        const attendees = await WaitingRoom.countDocuments({event_id: req.params.id});
+        const attendeesM = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "M"});
+        const attendeesF = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "F"});
+        const callList = await CallHistory.countDocuments({event_id: req.params.id});
+        const failedClic = await FailedClic.countDocuments({event_id: req.params.id});
+        const matchList = await Matched.find({event_id: req.params.id});
+        const latestDoc = await WaitingRoom.findOne({ event_id: req.params.id })
+                    .sort({ updatedAt: -1 }) // Sort by updatedAt descending
+                    .select('updatedAt')     // Select only the updatedAt field
+                    .lean();
+        const leftEarly = await CallHistory.countDocuments({event_id: req.params.id, left_early: true});
+        var counts: { [key: number]: number } = {};
+      matchList.forEach(x => {
+        if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
+        else counts[x.count] = 1;
+      });
+        result.approvedGenderC = genderCounts;
+        result.totalCancelled = cancelList;
+        result.attendees = attendees;
+        result.attendeesM = attendeesM;
+        result.attendeesF = attendeesF;
+        result.totalCall = callList;
+        result.failedClic = failedClic;
+        result.totalMatch = matchList.length;
+        result.lastExit = latestDoc?.updatedAt || null;
+        result.leftEarly = leftEarly;
+        result.matchCounts = counts;
+        result.totalExts = matchList.reduce((x, y) => x + y.count, 0);
         const newResult = await eventUser.find({ event_id: req.params.id });
         const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, { password: 0, expoPushToken: 0 });
         const pending_members: any = []; const approved_members: any = [];
@@ -117,7 +152,8 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                     }
                 }
             }
-        })
+        });
+        result.noShows = (approved_members.length - attendees);
         res.json({ members: users, result, approved_members, pending_members });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
@@ -262,7 +298,7 @@ const upcomingEvents = await Event.aggregate([
   {
     $match: {
       hasApprovedStatus: false,
-      $expr: { $gte: [ "$dateTimeDifference", -200 ] }
+      $expr: { $gte: [ "$dateTimeDifference", -7 ] }
     },
   },
   {
@@ -349,22 +385,20 @@ export async function createEvent(req: any, res: Response): Promise<void> {
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
-  //     res.on('finish', async () => {
-  //     const users = await User.find({}).select('email userName expoPushToken');
+      res.on('finish', async () => {
+      const users = await User.find({}).select('email userName expoPushToken');
 
-  //     users.map(async(user)=>{
-  //       if (user.expoPushToken) sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`);
-  //       if (user.email == "asif93@student.sust.edu" || user.email == "mahir.tasin.dev@gmail.com") {
-  //       sendEmail(
-  //         user.email,
-  //         'New pool created!',
-  //         `Hello ${user.userName}, New pool arrived for you!`, 
-  //         `<h1>Hello ${user.userName}</h1> <p>Check your upcoming pools!</p>`
-  //       );
-  //       }
-  //     });
-  //     scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id});
-  // });
+      users.map(async(user)=>{
+        if (user.expoPushToken) sendPushNotificationNow(user.expoPushToken, `New event has been created: ${req.body.title}`, `Join NOW!`);
+        sendEmail(
+          user.email,
+          'New pool created!',
+          `Hello ${user.userName}, New pool arrived for you!`,
+          `<h1>Hello ${user.userName}</h1> <p>Check your upcoming pools!</p>`
+        );
+      });
+      scheduleJob("send push notification", req.body.date_time, {eventId: createdEvent._id});
+  });
 }
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
