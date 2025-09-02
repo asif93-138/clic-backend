@@ -104,7 +104,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         const resultOld = await Event.findOne({ _id: req.params.id });
         const result: any = resultOld!.toObject();
         const genderCounts = await getGenderCountsByEvent(req.params.id);
-        const cancelList = await EventCancellation.countDocuments({event_id: req.params.id});
+        const cancelList = await EventCancellation.find({event_id: req.params.id}, "user_id");
         const attendees = await WaitingRoom.countDocuments({event_id: req.params.id});
         const attendeesM = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "M"});
         const attendeesF = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "F"});
@@ -122,7 +122,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         else counts[x.count] = 1;
       });
         result.approvedGenderC = genderCounts;
-        result.totalCancelled = cancelList;
+        result.totalCancelled = cancelList.length;
         result.attendees = attendees;
         result.attendeesM = attendeesM;
         result.attendeesF = attendeesF;
@@ -134,7 +134,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         result.matchCounts = counts;
         result.totalExts = matchList.reduce((x, y) => x + y.count, 0);
         const newResult = await eventUser.find({ event_id: req.params.id });
-        const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, { password: 0, expoPushToken: 0 });
+        const users = await User.find({ _id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id)] } }, { password: 0, expoPushToken: 0 });
         const pending_members: any = []; const approved_members: any = [];
         newResult.forEach(x => {
             if (x.status == 'approved') {
@@ -154,7 +154,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             }
         });
         result.noShows = (approved_members.length - attendees);
-        res.json({ members: users, result, approved_members, pending_members });
+        res.json({ members: users, result, approved_members, pending_members, cancelled_members: cancelList.map(x => x.user_id) });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -421,6 +421,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                             }
                         });
                         await notificationData.save();
+                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id})
                 res.json({ btnTxt: 'pending' });
             } else {
                 res.status(400).json({ message: "failed!" });
@@ -430,7 +431,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                 user_id: dataObj_1.user_id,
                 event_id: dataObj_1.event_id
             });
-
+        
             const filter = {event_id: dataObj_1.event_id, user_id: dataObj_1.user_id};
 
             const update = {
@@ -476,14 +477,12 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
 
 export async function rejectEventUser(req: Request, res: Response): Promise<void> {
     try {
-        const dataObj_1 = req.body.firstObj;
-        const dataObj_2 = req.body.secondObj;
-        const eventUserResult = await eventUser.updateOne(
-            { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
-            { $set: dataObj_2 }
-        );
+        const eventUserResult = await eventUser.deleteOne({
+                user_id: req.body.user_id,
+                event_id: req.body.event_id
+            });
         if (eventUserResult.acknowledged) {
-            res.json({ message: "Successfully approved user!" });
+            res.json({ message: "Successfully removed user!" });
         } else {
             res.status(400).json({ message: "failed!" });
         }

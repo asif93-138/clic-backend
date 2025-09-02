@@ -400,7 +400,7 @@ app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
-// app.post("/eventUserReject", authMiddleware, rejectEventUser);
+app.post("/eventUserReject", authMiddleware, rejectEventUser);
 app.post("/testUpload", authMiddleware, upload.single('testUpload'), cloudinaryUpload, uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/email-verification-code", emailVerificationC);
