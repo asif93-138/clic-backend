@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-
+import fs from 'fs';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../utils/jwt';
 import User from '../models/user.model';
@@ -7,7 +7,10 @@ import { sendEmail } from '../utils/sendEmail';
 import sendPushNotificationNow from '../utils/sendPushNotificationNow';
 import verificationCode from '../models/verificationCode';
 import notification from '../models/notification';
-
+import cloudinary from '../utils/cloudinary';
+import invitations from '../models/invitations';
+import eventUser from '../models/eventUser';
+import EventCancellation from '../models/eventCancellation';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -164,6 +167,37 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function updateUserApp(req: any, res: Response): Promise<void> {
+    try {
+        if (!req.params || !req.params.id) {
+            res.status(400).json({ message: 'User ID is required' });
+            return;
+        }
+        if (req.file) {
+            const userData = await User.findById(req.user, "imgURL cloud_imgURL");
+            // Delete previous file from local storage
+            fs.unlinkSync(req.file.destination + "\\" + userData!.imgURL.slice(8));
+
+            // Delete previous file from cloud
+            const parts = userData!.cloud_imgURL.split("/");
+            const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
+            await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+
+            const dataObj = req.body;
+            dataObj.imgURL = "uploads/" + req.file.filename;
+            dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+            const result = await User.findByIdAndUpdate(req.user, dataObj);
+            res.json(result);
+        }
+        else {
+            const result = await User.findByIdAndUpdate(req.user, req.body);
+            res.json(result);
+        }
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+    }
+}
+
 export const sendEmailC = async (req: Request, res: Response) => {
   const { email, username } = req.body;
 
@@ -236,4 +270,40 @@ export async function pushNotificationTest(req: any, res: Response): Promise<voi
 
   await sendPushNotificationNow(user?.expoPushToken, title, body);
   res.sendStatus(200);
+}
+
+export async function searchUser(req: Request, res: Response) {
+    const users = await User.find({
+        $or: [
+            { userName: { $regex: req.query.data, $options: "i" } },
+            { email: { $regex: req.query.data, $options: "i" } }
+        ]
+    }, "userName email imgURL");
+
+    res.json(users);
+}
+
+export async function getInvites(req: any, res: Response) {
+    const invites = await invitations.find({user_id: req.user});
+    res.json(invites);
+}
+export async function updateInvite(req: any, res: Response) {
+    try {
+        if (req.body.status == 'rejected') {
+            const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
+            res.json(invites);
+        }
+        else {
+            await EventCancellation.deleteOne({event_id: req.body.event_id, user_id: req.user});
+            const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
+            const dataObj = req.body;
+            dataObj.status = 'approved';
+        dataObj.user_id = req.user;
+            const approval = await eventUser.create(dataObj);
+            res.json(invites);
+        }
+    }
+    catch (error) {
+        console.log("Error in updating invitation:", error);
+    }
 }

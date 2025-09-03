@@ -9,6 +9,7 @@ import FailedClic from '../models/failedClic';
 import User from '../models/user.model';
 import DateFeedback from '../models/dateFeedback';
 import notification from '../models/notification';
+import invitations from '../models/invitations';
 
 const email = "admin@email.com";
 const password = "admin";
@@ -120,4 +121,15 @@ export async function readNotification(req: Request, res: Response) {
 export async function deleteUnreadNotifications(req: Request, res: Response) {
     const deleted = await notification.deleteMany({read: true});
     res.json(deleted);
+}
+
+export async function registerInvites(req: Request, res: Response) {
+    try {
+        const inviteResult = await invitations.create(req.body);
+        res.json(inviteResult);
+    }
+    catch (error) {
+        console.log("Error in registerInvites:", error);
+        res.status(500).json(error)
+    }
 }

@@ -13,6 +13,7 @@ import WaitingRoom from '../models/waitingRoom';
 import CallHistory from '../models/callHistory';
 import FailedClic from '../models/failedClic';
 import Matched from '../models/matched';
+import invitations from '../models/invitations';
 import cloudinary from '../utils/cloudinary';
 
           const getGenderCountsByEvent = async (eventId: string) => {
@@ -116,6 +117,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                     .select('updatedAt')     // Select only the updatedAt field
                     .lean();
         const leftEarly = await CallHistory.countDocuments({event_id: req.params.id, left_early: true});
+        const invites = await invitations.find({event_id: req.params.id});
         var counts: { [key: number]: number } = {};
       matchList.forEach(x => {
         if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
@@ -154,7 +156,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             }
         });
         result.noShows = (approved_members.length - attendees);
-        res.json({ members: users, result, approved_members, pending_members, cancelled_members: cancelList.map(x => x.user_id) });
+        res.json({ members: users, result, approved_members, pending_members, invites, cancelled_members: cancelList.map(x => x.user_id) });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -421,7 +423,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                             }
                         });
                         await notificationData.save();
-                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id})
+                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
                 res.json({ btnTxt: 'pending' });
             } else {
                 res.status(400).json({ message: "failed!" });
