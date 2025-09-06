@@ -117,7 +117,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                     .select('updatedAt')     // Select only the updatedAt field
                     .lean();
         const leftEarly = await CallHistory.countDocuments({event_id: req.params.id, left_early: true});
-        const invites = await invitations.find({event_id: req.params.id});
+        const invites = await invitations.find({event_id: req.params.id}, "user_id status");
         var counts: { [key: number]: number } = {};
       matchList.forEach(x => {
         if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
@@ -135,8 +135,11 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         result.leftEarly = leftEarly;
         result.matchCounts = counts;
         result.totalExts = matchList.reduce((x, y) => x + y.count, 0);
-        const newResult = await eventUser.find({ event_id: req.params.id });
-        const users = await User.find({ _id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id)] } }, { password: 0, expoPushToken: 0 });
+        const newResult = await eventUser.find({ event_id: req.params.id }, "user_id status");
+        const users = await User.find(
+          {_id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } }, 
+          { password: 0, expoPushToken: 0, ques_ans: 0 }
+        );
         const pending_members: any = []; const approved_members: any = [];
         newResult.forEach(x => {
             if (x.status == 'approved') {
@@ -156,7 +159,12 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             }
         });
         result.noShows = (approved_members.length - attendees);
-        res.json({ members: users, result, approved_members, pending_members, invites, cancelled_members: cancelList.map(x => x.user_id) });
+        const invited:any = {};
+        invites.forEach(x => invited[x.user_id] = x);
+        res.json({
+           members: users, result, invited, approved_members, pending_members,
+           invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id) 
+        });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }

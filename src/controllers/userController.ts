@@ -274,6 +274,7 @@ export async function pushNotificationTest(req: any, res: Response): Promise<voi
 
 export async function searchUser(req: Request, res: Response) {
     const users = await User.find({
+        approved: "approved", // only approved users
         $or: [
             { userName: { $regex: req.query.data, $options: "i" } },
             { email: { $regex: req.query.data, $options: "i" } }
@@ -298,8 +299,18 @@ export async function updateInvite(req: any, res: Response) {
             const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
             const dataObj = req.body;
             dataObj.status = 'approved';
-        dataObj.user_id = req.user;
+            dataObj.user_id = req.user;
             const approval = await eventUser.create(dataObj);
+            // const notificationData = new notification({
+            //     type: "rsvp",
+            //     data: {
+            //         event_id: req.body.event_id,
+            //         user_id: req.user,
+            //         eventTitle: ,
+            //         userName: 
+            //     }
+            // });
+            // await notificationData.save();
             res.json(invites);
         }
     }
