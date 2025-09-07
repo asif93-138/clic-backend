@@ -11,6 +11,7 @@ import cloudinary from '../utils/cloudinary';
 import invitations from '../models/invitations';
 import eventUser from '../models/eventUser';
 import EventCancellation from '../models/eventCancellation';
+import path from 'path';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -169,14 +170,20 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
 export async function updateUserApp(req: any, res: Response): Promise<void> {
     try {
-        if (!req.params || !req.params.id) {
-            res.status(400).json({ message: 'User ID is required' });
-            return;
-        }
         if (req.file) {
             const userData = await User.findById(req.user, "imgURL cloud_imgURL");
-            // Delete previous file from local storage
-            fs.unlinkSync(req.file.destination + "\\" + userData!.imgURL.slice(8));
+
+            // Delete previous file from local storage (wrapped in try/catch)
+            if (userData?.imgURL) {
+                try {
+                    const oldPath = path.join(req.file.destination, userData.imgURL.replace("uploads/", ""));
+                    if (fs.existsSync(oldPath)) {
+                        fs.unlinkSync(oldPath);
+                    }
+                } catch (err) {
+                    console.error("Local file deletion failed:", err);
+                }
+            }
 
             // Delete previous file from cloud
             const parts = userData!.cloud_imgURL.split("/");
@@ -186,17 +193,45 @@ export async function updateUserApp(req: any, res: Response): Promise<void> {
             const dataObj = req.body;
             dataObj.imgURL = "uploads/" + req.file.filename;
             dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-            const result = await User.findByIdAndUpdate(req.user, dataObj);
+            const result = await User.findByIdAndUpdate(req.user, dataObj, { new: true });
             res.json(result);
         }
         else {
-            const result = await User.findByIdAndUpdate(req.user, req.body);
+            const result = await User.findByIdAndUpdate(req.user, req.body, { new: true });
             res.json(result);
         }
     } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+        console.error("Error updating profile picture:", error);
     }
 }
+
+// export async function updateUserApp(req: any, res: Response): Promise<void> {
+//     console.log("req.user :", req.user);
+//     console.log("req.file :", req.file);
+//     console.log("req.body :", req.body);
+//     try {
+//         if (req.file) {
+//             // const userData = await User.findById(req.user, "imgURL cloud_imgURL");
+//             // console.log("userData :", userData);
+
+//             const dataObj:any = {};
+//             dataObj.imgURL = "uploads/" + req.file.filename;
+//             dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+//             console.log("dataObj :", dataObj);
+//             const result = await User.findByIdAndUpdate(req.user, dataObj);
+//             res.json(result);
+//         }
+//         else {
+//             console.log("req.body :", req.body);
+//             const result = await User.findByIdAndUpdate(req.user, req.body);
+//             console.log("result :", result);
+//             res.json(result);
+//         }
+//     } catch (error) {
+//         console.error("Error updating profile picture:", error);
+//     }
+// }
+
 
 export const sendEmailC = async (req: Request, res: Response) => {
   const { email, username } = req.body;
@@ -295,7 +330,7 @@ export async function updateInvite(req: any, res: Response) {
             res.json(invites);
         }
         else {
-            await EventCancellation.deleteOne({event_id: req.body.event_id, user_id: req.user});
+            await EventCancellation.deleteOne({event_id: req.body.event_id, title: req.body.title, user_id: req.user, userName: req.body.userName,});
             const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
             const dataObj = req.body;
             dataObj.status = 'approved';
@@ -304,10 +339,10 @@ export async function updateInvite(req: any, res: Response) {
             // const notificationData = new notification({
             //     type: "rsvp",
             //     data: {
-            //         event_id: req.body.event_id,
+            //         event_id: event_id,
             //         user_id: req.user,
-            //         eventTitle: ,
-            //         userName: 
+            //         eventTitle: title,
+            //         userName: userName
             //     }
             // });
             // await notificationData.save();
