@@ -14,6 +14,8 @@ export interface IUser extends Document {
     occupation?: string;
     where_live?: string;
     where_from : string;
+    hearingPlatform : string;
+    referredBy : string;
     cities_frequent?: string;
     about?: string;
     approved: string;
@@ -37,6 +39,8 @@ const UserSchema: Schema = new Schema(
     occupation: {type: String},
     where_live : {type: String},
     where_from : {type: String, required: true},
+    hearingPlatform : {type: String, required: true},
+    referredBy : {type: String, required: true},
     cities_frequent : {type: String},
     about : {type: String},
     approved: { type: String, default: 'pending' },
