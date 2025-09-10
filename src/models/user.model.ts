@@ -18,6 +18,8 @@ export interface IUser extends Document {
     referredBy : string;
     cities_frequent?: string;
     about?: string;
+    socialMediaObj?: string;
+    socialMediaHandle?: string;
     approved: string;
     expoPushToken?: string;
     ques_ans: object;
@@ -43,6 +45,8 @@ const UserSchema: Schema = new Schema(
     referredBy : {type: String, required: true},
     cities_frequent : {type: String},
     about : {type: String},
+    socialMediaObj : {type: String},
+    socialMediaHandle : {type: String},
     approved: { type: String, default: 'pending' },
     expoPushToken: { type: String, default: '' },
     ques_ans: { type: Object, required: true },
