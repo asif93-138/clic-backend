@@ -6,8 +6,9 @@ const DateFeedbackSchema = new mongoose.Schema(
     user_id: { type: String, required: true },
     other_user_id: { type: String, required: true },
     dateRoomDocId: { type: String, required: true },
-    rating: {type: Number},
-    comment: {type: String},
+    answer_1: { type: String, required: true },
+    answer_2: { type: String, required: true },
+    rating: {type: Number, required: true},
   },
   { timestamps: true }
 );
