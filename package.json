@@ -16,6 +16,7 @@
   "dependencies": {
     "@types/bcrypt": "^5.0.2",
     "agenda": "^5.0.0",
+    "archiver": "^7.0.1",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.6.0",
@@ -33,6 +34,7 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

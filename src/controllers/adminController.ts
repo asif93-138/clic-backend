@@ -10,6 +10,9 @@ import User from '../models/user.model';
 import DateFeedback from '../models/dateFeedback';
 import notification from '../models/notification';
 import invitations from '../models/invitations';
+import path from "path";
+import fs from "fs";
+import archiver from "archiver";
 
 const email = "admin@email.com";
 const password = "admin";
@@ -132,4 +135,34 @@ export async function registerInvites(req: Request, res: Response) {
         console.log("Error in registerInvites:", error);
         res.status(500).json(error)
     }
+}
+
+export async function downloadImages(req: Request, res: Response): Promise<void> {
+      const uploadsFolder = path.join(__dirname, "../../uploads"); // adjust if needed
+
+  // check if uploads folder exists
+  if (!fs.existsSync(uploadsFolder)) {
+    res.status(404).json({ error: "Uploads folder not found" });
+    return;
+  }
+
+  const zipFileName = "images.zip";
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename=${zipFileName}`);
+
+  const archive = archiver("zip", { zlib: { level: 9 } });
+
+  archive.on("error", (err) => {
+    console.error("Archive error:", err);
+    res.status(500).send({ error: "Error creating archive" });
+  });
+
+  // pipe the archive data to the response
+  archive.pipe(res);
+
+  // append all files from uploads folder
+  archive.directory(uploadsFolder, false);
+
+  archive.finalize();
 }
