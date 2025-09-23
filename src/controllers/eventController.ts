@@ -85,12 +85,14 @@ export async function getAllEvents(req: Request, res: Response): Promise<void> {
           const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
           const pendingList = await eventUser.countDocuments({event_id: event._id, status: "pending"});
           const approvedList = await eventUser.countDocuments({event_id: event._id, status: "approved"});
+          const waitingList = await eventUser.countDocuments({event_id: event._id, status: "waiting"});
 
 const genderCounts = await getGenderCountsByEvent(event._id.toString());
 const cancelList = await EventCancellation.countDocuments({event_id: event._id});
           dataObj.approvedGenderC = genderCounts;
           dataObj.pending = pendingList;
           dataObj.approved = approvedList;
+          dataObj.waiting = waitingList;
           dataObj.totalCancelled = cancelList;
           result.push(dataObj);
         }
@@ -140,7 +142,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
           {_id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } }, 
           { password: 0, expoPushToken: 0, ques_ans: 0 }
         );
-        const pending_members: any = []; const approved_members: any = [];
+        const pending_members: any = []; const approved_members: any = []; const waiting_members: any = [];
         newResult.forEach(x => {
             if (x.status == 'approved') {
                 for (const y of users) {
@@ -149,10 +151,17 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                         break;
                     }
                 }
-            } else {
+            } else if (x.status == 'pending') {
                 for (const y of users) {
                     if (y._id == x.user_id) {
                         pending_members.push(x.user_id);
+                        break;
+                    }
+                }
+            } else {
+                for (const y of users) {
+                    if (y._id == x.user_id) {
+                        waiting_members.push(x.user_id);
                         break;
                     }
                 }
@@ -162,7 +171,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         const invited:any = {};
         invites.forEach(x => invited[x.user_id] = x);
         res.json({
-           members: users, result, invited, approved_members, pending_members,
+           members: users, result, invited, approved_members, pending_members, waiting_members,
            invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id) 
         });
     } catch (error) {
@@ -417,6 +426,27 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
         const dataObj_1 = { event_id: eventId, user_id: req.user, btnTxt, status };
         if (dataObj_1.btnTxt === 'join') {
             dataObj_1.status = 'pending';
+            const insertResult = await eventUser.create(dataObj_1);
+            if (insertResult._id) {
+                        const eventData = await Event.findById(eventId, 'title');
+                        const userData = await User.findById(req.user, 'userName');
+                        const notificationData = new notification({
+                            type: "rsvp",
+                            data: {
+                                event_id: eventId,
+                                user_id: req.user,
+                                eventTitle: eventData?.title,
+                                userName: userData?.userName
+                            }
+                        });
+                        await notificationData.save();
+                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
+                res.json({ btnTxt: 'pending' });
+            } else {
+                res.status(400).json({ message: "failed!" });
+            }
+        } else if (dataObj_1.btnTxt === 'waiting') {
+            dataObj_1.status = 'waiting';
             const insertResult = await eventUser.create(dataObj_1);
             if (insertResult._id) {
                         const eventData = await Event.findById(eventId, 'title');
@@ -718,6 +748,44 @@ export const getFutureEvents = async (req : Request, res: Response) => {
     res.json(futureEvents);
   } catch (err) {
     console.log("Failed to fetch future events: " + err);
+    res.status(500).json(err);
+  }
+};
+export const getWaitingList = async (req : Request, res: Response) => {
+  try {
+      const events = await Event.find({
+      date_time: { $gt: new Date().toISOString().slice(0, 16) }
+    }).select("title date_time").exec();
+  const eventUsers = await eventUser.find({event_id: {$in: events.map((x:any) => x._id.toString())}, status: "waiting"}, "user_id event_id");
+  const users = await User.find({_id: {$in: eventUsers.map(x => x.user_id)}}, "userName imgURL");
+  const WaitingList:any = [];
+  eventUsers.forEach(x => {
+    const dataItem:any = {};
+    dataItem.event_id = x.event_id;
+    dataItem.user_id = x.user_id;
+    for (const y of users) {
+      // Ensure y._id is treated as a string or ObjectId
+      if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
+        if (y._id.toString() == x.user_id) {
+          dataItem.userName = y.userName; dataItem.imgURL = y.imgURL;
+          break;
+        }
+      }
+    }
+    for (const y of events) {
+      // Ensure y._id is treated as a string or ObjectId
+      if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
+        if (y._id.toString() == x.event_id) {
+          dataItem.title = y.title; dataItem.date_time = y.date_time;
+          break;
+        }
+      }
+    }
+    WaitingList.push(dataItem);
+  });
+    res.json(WaitingList);
+  } catch (err) {
+    console.log("Failed to fetch waiting list: " + err);
     res.status(500).json(err);
   }
 };

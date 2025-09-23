@@ -7,7 +7,7 @@ import initialController from "./controllers/initialController";
 import { createUser, checkUsers, getAllUsers, getUser, updatePass, getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate, pushNotificationTest, emailVerificationC, matchVerificationCode, updateUser, getUserData, searchUser, updateUserApp, getInvites, updateInvite } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import { adminDataEvent, adminEventDetails, adminLogin, deleteUnreadNotifications, downloadImages, getAllNotifications, notificationCount, readNotification, registerInvites } from "./controllers/adminController";
-import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, eventUserStatusAdmin, getAllEvents, getEvent, getEventForApp, getFutureEvents, getUserPool, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
+import { applyEvent, approveEventUser, createEvent, deletePhoto, eventUserStatus, eventUserStatusAdmin, getAllEvents, getEvent, getEventForApp, getFutureEvents, getUserPool, getWaitingList, homePageData, rejectEventUser, updateEvent, uploadTesting } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
 import interestsSearchController from "./controllers/interestsSearchController";
@@ -396,6 +396,7 @@ app.get("/invites", authMiddleware, getInvites);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
 app.get("/download-images", authMiddleware, downloadImages);
+app.get("/waiting-list", authMiddleware, getWaitingList);
 
 app.post("/register", upload.single('profilePicture'), cloudinaryUpload, createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), cloudinaryUpload, createEvent);
