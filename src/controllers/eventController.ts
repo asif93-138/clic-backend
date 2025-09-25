@@ -232,46 +232,71 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
     const limit = 100;
 
     try {
+
 // const upcomingEvents = await Event.aggregate([
-//     {
-//         $lookup: {
-//             from: "eventusers",
-//             let: { eventId: "$_id" },
-//             pipeline: [
-//                 {
-//                     $match: {
-//                         $expr: {
-//                             $and: [
-//                                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
-//                                 { $eq: ["$user_id", userId] }
-//                             ]
-//                         }
-//                     }
-//                 }
-//             ],
-//             as: "userStatus"
-//         }
-//     },
-//     {
-//         $match: {
+//   {
+//     $lookup: {
+//       from: "eventusers",
+//       let: { eventId: "$_id" },
+//       pipeline: [
+//         {
+//           $match: {
 //             $expr: {
-//                 $not: {
-//                     $in: ["approved", "$userStatus.status"]
-//                 }
-//             }
-//         }
+//               $and: [
+//                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
+//                 { $eq: ["$user_id", userId] },
+//               ],
+//             },
+//           },
+//         },
+//       ],
+//       as: "userEntries",
 //     },
-//     {
-//         $project: {
-//             title: 1,
-//             imgURL: 1,
-//             date_time: 1,
-//             userStatus: 1
+//   },
+//   {
+//     $addFields: {
+//       hasPendingStatus: {
+//         $in: ["pending", "$userEntries.status"],
+//       },
+//       hasApprovedStatus: {
+//         $in: ["approved", "$userEntries.status"],
+//       },
+//       convertedDateTime: {
+//         $toDate: "$date_time"
+//       },
+//       dateTimeDifference: {
+//         $dateDiff: {
+//           startDate: new Date(),
+//           endDate: { $toDate: "$date_time" },
+//           unit: "day"
 //         }
+//       }
 //     },
-//     { $sort: { createdAt: 1 } },
-//     { $skip: page * limit },
-//     { $limit: limit }
+//   },
+//   {
+//     $match: {
+//       hasApprovedStatus: false,
+//       $expr: { $gte: [ "$dateTimeDifference", -7 ] }
+//     },
+//   },
+//   {
+//     $project: {
+//       title: 1,
+//       imgURL: 1,
+//       date_time: 1,
+//       userStatus: {
+//         $cond: [
+//           "$hasPendingStatus",
+//           "pending",
+//           "new",
+//         ],
+//       },
+//       createdAt: 1,
+//     },
+//   },
+//   { $sort: { createdAt: -1 } },
+//   { $skip: page * limit },
+//   { $limit: limit },
 // ]);
 
 const upcomingEvents = await Event.aggregate([
@@ -299,6 +324,9 @@ const upcomingEvents = await Event.aggregate([
       hasPendingStatus: {
         $in: ["pending", "$userEntries.status"],
       },
+      hasWaitingStatus: {
+        $in: ["waiting", "$userEntries.status"],
+      },
       hasApprovedStatus: {
         $in: ["approved", "$userEntries.status"],
       },
@@ -317,7 +345,7 @@ const upcomingEvents = await Event.aggregate([
   {
     $match: {
       hasApprovedStatus: false,
-      $expr: { $gte: [ "$dateTimeDifference", -7 ] }
+      $expr: { $gte: ["$dateTimeDifference", -7] }
     },
   },
   {
@@ -326,11 +354,13 @@ const upcomingEvents = await Event.aggregate([
       imgURL: 1,
       date_time: 1,
       userStatus: {
-        $cond: [
-          "$hasPendingStatus",
-          "pending",
-          "new",
-        ],
+        $switch: {
+          branches: [
+            { case: "$hasPendingStatus", then: "pending" },
+            { case: "$hasWaitingStatus", then: "waiting" },
+          ],
+          default: "new"
+        }
       },
       createdAt: 1,
     },
@@ -339,6 +369,8 @@ const upcomingEvents = await Event.aggregate([
   { $skip: page * limit },
   { $limit: limit },
 ]);
+
+console.log(upcomingEvents);
 
         let arr_1: any[] = [], arr_2: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
@@ -462,7 +494,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                         });
                         await notificationData.save();
                         await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
-                res.json({ btnTxt: 'pending' });
+                res.json({ btnTxt: 'waiting' });
             } else {
                 res.status(400).json({ message: "failed!" });
             }

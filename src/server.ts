@@ -25,6 +25,7 @@ import defineNotificationJob from './jobs/sendNotification';
 import collectFeedback from "./controllers/feedbackCollection";
 import FailedClic from "./models/failedClic";
 import { cloudinaryUpload } from "./middleware/cloudinaryUpload";
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 
 dotenv.config();
@@ -34,6 +35,10 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT as string, 10);
+
+const APP_ID = process.env.AGORA_APP_ID;
+const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+
 
 // Middleware to parse JSON and URL-encoded request bodies
 app.use(express.json());
@@ -354,13 +359,35 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
       };
       const insertCHData = await CallHistory.create(callHistoryData);
 
+      const channelName = dateRoomId;
+
+      const role = RtcRole.PUBLISHER;  // or the corresponding constant in your library
+
+      const expirationInSeconds = 3600;  // e.g. 1 hour
+      const currentTs = Math.floor(Date.now() / 1000);
+      const tokenExpire = currentTs + expirationInSeconds;
+      const privilegeExpire = currentTs + expirationInSeconds;  // usually same or can be less/more
+
+      function generateToken(uid:number) {
+        if (!APP_ID || !APP_CERTIFICATE) return;
+        const token = RtcTokenBuilder.buildTokenWithUid(
+          APP_ID,
+          APP_CERTIFICATE,
+          channelName,
+          uid,
+          role,
+          tokenExpire,
+          privilegeExpire
+        );
+        return token;
+      }
 
       console.log('----- socket emission -----');
       console.log({...socketEmission, timer});
 
       // Emit match event to all users in the event room
-      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id});
-      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id});
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(1), uid: 1});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(2), uid: 2});
    
      
       console.log('----- pairing function ended -----');
