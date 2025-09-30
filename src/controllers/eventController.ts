@@ -15,6 +15,7 @@ import FailedClic from '../models/failedClic';
 import Matched from '../models/matched';
 import invitations from '../models/invitations';
 import cloudinary from '../utils/cloudinary';
+import { ObjectId } from 'mongodb';
 
           const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -590,12 +591,14 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
             dataObj.cloud_imgURL = req.file.cloudinaryUrl;
             dataObj.event_durations = JSON.parse(dataObj.event_durations);
             dataObj.extension_limit = Number(dataObj.extension_limit);
+            dataObj.event_status = dataObj.event_status == "true"? true : false;
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
             res.json(result);
         } else {
             const dataObj = req.body;
             dataObj.event_durations = JSON.parse(dataObj.event_durations);
             dataObj.extension_limit = Number(dataObj.extension_limit);
+            dataObj.event_status = dataObj.event_status == "true"? true : false;
             const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
             res.json(result);
         }
@@ -785,11 +788,13 @@ export const getFutureEvents = async (req : Request, res: Response) => {
 };
 export const getWaitingList = async (req : Request, res: Response) => {
   try {
+    console.log(req.params.id, new ObjectId(req.params.id));
       const events = await Event.find({
-      date_time: { $gt: new Date().toISOString().slice(0, 16) }
+      date_time: { $gt: new Date().toISOString().slice(0, 16) }, _id: { $ne: new ObjectId(req.params.id) }
     }).select("title date_time").exec();
+    console.log(events);
   const eventUsers = await eventUser.find({event_id: {$in: events.map((x:any) => x._id.toString())}, status: "waiting"}, "user_id event_id");
-  const users = await User.find({_id: {$in: eventUsers.map(x => x.user_id)}}, "userName imgURL");
+  const users = await User.find({_id: {$in: eventUsers.map(x => x.user_id)}}, "userName imgURL gender");
   const WaitingList:any = [];
   eventUsers.forEach(x => {
     const dataItem:any = {};
@@ -799,7 +804,7 @@ export const getWaitingList = async (req : Request, res: Response) => {
       // Ensure y._id is treated as a string or ObjectId
       if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
         if (y._id.toString() == x.user_id) {
-          dataItem.userName = y.userName; dataItem.imgURL = y.imgURL;
+          dataItem.userName = y.userName; dataItem.imgURL = y.imgURL; dataItem.gender = y.gender;
           break;
         }
       }

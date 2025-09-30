@@ -423,7 +423,7 @@ app.get("/invites", authMiddleware, getInvites);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
 app.get("/download-images", authMiddleware, downloadImages);
-app.get("/waiting-list", authMiddleware, getWaitingList);
+app.get("/waiting-list/:id", authMiddleware, getWaitingList);
 
 app.post("/register", upload.single('profilePicture'), cloudinaryUpload, createUser);
 app.post("/event", authMiddleware, upload.single('eventBanner'), cloudinaryUpload, createEvent);
