@@ -363,6 +363,7 @@ const upcomingEvents = await Event.aggregate([
           default: "new"
         }
       },
+      event_status: 1,
       createdAt: 1,
     },
   },
@@ -612,7 +613,12 @@ export async function eventUserStatus(req: any, res: Response): Promise<void> {
         const event_id = req.params.id;
         const user_id = req.user;
         const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
-        res.json({status: eventUserResult?.status});
+        console.log(eventUserResult);
+        if (!eventUserResult) {
+          const event = await Event.findOne({ _id: req.params.id }, "event_status");
+          console.log(event);
+          res.json({status: event?.event_status === true ? "join waitlist" : "join"});
+        } else {res.json({status: eventUserResult?.status});}
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }
@@ -765,6 +771,7 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
         event_id: "$event._id",    // this will be an ObjectId
         title: "$event.title",
         date_time: "$event.date_time",
+        event_status: "$event.event_status",
       },
     },
   ]);
