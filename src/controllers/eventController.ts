@@ -372,8 +372,6 @@ const upcomingEvents = await Event.aggregate([
   { $limit: limit },
 ]);
 
-console.log(upcomingEvents);
-
         let arr_1: any[] = [], arr_2: any[] = [];
         const userResult = await eventUser.find({ user_id: req.user });
         userResult.forEach((element: any) => {
@@ -457,8 +455,20 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 export async function applyEvent(req: any, res: Response): Promise<void> {
     try {
         const { eventId, btnTxt, status } = req.body;
+        const invitationCheck = await invitations.findOne({event_id: eventId, user_id: req.user});
         const dataObj_1 = { event_id: eventId, user_id: req.user, btnTxt, status };
         if (dataObj_1.btnTxt === 'join') {
+        if (invitationCheck) {
+            dataObj_1.status = 'approved';
+            const insertResult = await eventUser.create(dataObj_1);
+            if (insertResult._id) {
+                await invitations.findByIdAndUpdate(invitationCheck._id, {status: "accepted"});
+                await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
+                res.json({ btnTxt: 'approved' });
+            } else {
+                res.status(400).json({ message: "failed!" });
+            }
+        } else {
             dataObj_1.status = 'pending';
             const insertResult = await eventUser.create(dataObj_1);
             if (insertResult._id) {
@@ -479,7 +489,19 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
             } else {
                 res.status(400).json({ message: "failed!" });
             }
+        }
         } else if (dataObj_1.btnTxt === 'waiting') {
+                  if (invitationCheck) {
+            dataObj_1.status = 'approved';
+            const insertResult = await eventUser.create(dataObj_1);
+            if (insertResult._id) {
+                await invitations.findByIdAndUpdate(invitationCheck._id, {status: "accepted"});
+                await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
+                res.json({ btnTxt: 'approved' });
+            } else {
+                res.status(400).json({ message: "failed!" });
+            }
+        } else {
             dataObj_1.status = 'waiting';
             const insertResult = await eventUser.create(dataObj_1);
             if (insertResult._id) {
@@ -500,6 +522,7 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
             } else {
                 res.status(400).json({ message: "failed!" });
             }
+        }
         } else {
             const deleteResult = await eventUser.deleteOne({
                 user_id: dataObj_1.user_id,
@@ -517,9 +540,8 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
                   upsert: true,   // create if doesn't exist
                   new: true       // return the updated/new document
             };
-
             const cancelInsertion = await EventCancellation.findOneAndUpdate(filter, update, options);
-
+            if (invitationCheck) await invitations.findByIdAndUpdate(invitationCheck._id, {status: "rejected"});
             if (deleteResult.acknowledged && cancelInsertion) {
                 res.json({ btnTxt: 'join' });
             } else {
@@ -613,10 +635,8 @@ export async function eventUserStatus(req: any, res: Response): Promise<void> {
         const event_id = req.params.id;
         const user_id = req.user;
         const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
-        console.log(eventUserResult);
         if (!eventUserResult) {
           const event = await Event.findOne({ _id: req.params.id }, "event_status");
-          console.log(event);
           res.json({status: event?.event_status === true ? "join waitlist" : "join"});
         } else {res.json({status: eventUserResult?.status});}
     } catch (error) {
@@ -636,7 +656,6 @@ export async function eventUserStatusAdmin(req: Request, res: Response): Promise
 }
 
 export async function uploadTesting(req: Request, res: Response) {
-    console.log(req.file);
     res.status(200).json({file: req.file});
 }
 
@@ -798,11 +817,9 @@ export const getFutureEvents = async (req: Request, res: Response) => {
 };
 export const getWaitingList = async (req : Request, res: Response) => {
   try {
-    console.log(req.params.id, new ObjectId(req.params.id));
       const events = await Event.find({
       date_time: { $gt: new Date().toISOString().slice(0, 16) }, _id: { $ne: new ObjectId(req.params.id) }
     }).select("title date_time").exec();
-    console.log(events);
   const eventUsers = await eventUser.find({event_id: {$in: events.map((x:any) => x._id.toString())}, status: "waiting"}, "user_id event_id");
   const users = await User.find({_id: {$in: eventUsers.map(x => x.user_id)}}, "userName imgURL gender");
   const WaitingList:any = [];
