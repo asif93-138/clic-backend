@@ -14,13 +14,13 @@ import path from "path";
 import fs from "fs";
 import archiver from "archiver";
 
-const email = "admin@email.com";
-const password = "admin";
+const userName = "sarahzmahmud";
+const password = "Fullm00n2025!";
 
 export async function adminLogin(req: Request, res: Response): Promise<void> {
     try {
-        if (req.body.email === email && req.body.password === password) {
-            const token = generateToken({ id: `${email}:${password}` });
+        if (req.body.userName === userName && req.body.password === password) {
+            const token = generateToken({ id: `${userName}:${password}` });
             res.status(200).json({ message: "Login successful", token });
         } else {
             res.status(400).json({ message: "Incorrect credentials" });

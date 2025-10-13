@@ -167,7 +167,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
             await sendEmail(
                 req.body.email,
                 "Welcome to Clic Club",
-                "Congratulations! You're a member of Clic Club. You can now sign up to any of our scheduled online events, called Pools, to meet a selection of our members. A pool is essentially a speed dating event. Have fun!"
+                "Congratulations! You're a member of Clic Club. You can now sign up to any of our scheduled online events, called Pools, to meet a selection of our members. Have fun!"
             ); 
         }
         res.json(result);

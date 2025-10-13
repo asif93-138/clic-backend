@@ -853,3 +853,21 @@ export const getWaitingList = async (req : Request, res: Response) => {
     res.status(500).json(err);
   }
 };
+
+export async function sendBulkInvitations(req: Request, res: Response) {
+  try {
+    console.log(req.body);
+    req.body.users.forEach((x: { email: any; fullName: any; }) => {
+      sendEmail(
+        x.email,
+        'New pool created!',
+        "Clic Club invitation",
+        `<h1>Hello ${x.fullName}</h1> <p>You'r invited to ${req.body.eventTitle} pool!</p> <p>Go to https://clicclub.cc/ to join.</p>`
+      );
+    })
+    res.send("OK");
+  } catch (err) {
+    console.log("Failed to send bulk invitations: ", err);
+    res.status(500).json(err);
+  }
+}
