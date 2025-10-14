@@ -111,20 +111,139 @@ export async function createUser(req: any, res: Response): Promise<void> {
         const newUser = new User(dataObj);
         await newUser.save();
         const token = generateToken({ id: newUser._id });
-        await sendEmail(
-            "thehumanchemistrypilot@gmail.com",
-            "New member registered",
-            "Visit admin panel for more details!",
-            `<img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" width="100" />
-            <p>Name: ${req.body.userName}</p>
-            <p>Email: ${req.body.email}</p>
-            <p>Date of Birth: ${req.body.dateOfBirth}</p>
-            <p>Occupation: ${req.body.occupation}</p>
-            <p>Gender: ${req.body.gender}</p>
-            <p>From (city): ${req.body.where_from}</p>
-            <p>Lives (city): ${req.body.where_live}</p>
-            <p><b>Visit <a href="https://skyblue-alpaca-975080.hostingersite.com/">admin panel</a> for more details!</b></p>`    
-        );
+let qaTxt = "";
+JSON.parse(dataObj.ques_ans).forEach((x: { question: string; selectedAns: string; }, y: number) => 
+    qaTxt += `
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">
+            <p style="margin: 0 0 8px 0; font-weight: 600; color: #212529; font-size: 15px;">${y+1}. ${x.question}</p>
+            <p style="margin: 0; color: #495057; font-size: 14px; padding-left: 20px;">→ ${x.selectedAns}</p>
+        </div>
+    `
+);
+
+await sendEmail(
+    "thehumanchemistrypilot@gmail.com",
+    "New member registered",
+    "Visit admin panel for more details!",
+    `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #ffffff;">
+        
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">New Member Registration</h1>
+            <p style="color: #f0f0f0; margin: 10px 0 0 0; font-size: 14px;">A new member has joined the community</p>
+        </div>
+        
+       
+        <div style="padding: 40px 30px; background-color: #ffffff;">
+             
+            <div style="text-align: center; margin-bottom: 30px;">
+                <img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" 
+                     width="120" 
+                     style="border-radius: 50%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
+                     alt="Profile" />
+            </div>
+            
+            
+            <div style="margin-bottom: 35px;">
+                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Personal Information</h2>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Name:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.userName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Email:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.email}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Date of Birth:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.dateOfBirth}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Occupation:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.occupation}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Gender:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.gender}</td>
+                    </tr>
+                </table>
+            </div>
+            
+             
+            <div style="margin-bottom: 35px;">
+                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Location Details</h2>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">From (city):</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_from}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Lives (city):</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_live}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Cities Frequent:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.cities_frequent}</td>
+                    </tr>
+                </table>
+            </div>
+            
+           
+            <div style="margin-bottom: 35px;">
+                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Social & Referral</h2>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Heard from:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.hearingPlatform}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Referred By:</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.referredBy}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Platform):</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaObj}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Handle):</td>
+                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaHandle}</td>
+                    </tr>
+                </table>
+            </div>
+            
+             
+            <div style="margin-bottom: 35px;">
+                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">About</h2>
+                <p style="margin: 0; padding: 15px; background-color: #f8f9fa; border-radius: 6px; color: #495057; line-height: 1.6; font-size: 14px;">${req.body.about || 'No information provided'}</p>
+            </div>
+            
+             
+            <div style="margin-bottom: 30px;">
+                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Q/A Test Results</h2>
+                ${qaTxt}
+            </div>
+            
+         
+            <div style="text-align: center; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
+                <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">View complete member details</p>
+                <a href="https://skyblue-alpaca-975080.hostingersite.com/" 
+                   style="display: inline-block; padding: 12px 30px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    Visit Admin Panel
+                </a>
+            </div>
+        </div>
+        
+       
+        <div style="padding: 20px 30px; background-color: #f8f9fa; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
+            <p style="margin: 0; color: #6c757d; font-size: 13px;">This is an automated notification from your member registration system</p>
+        </div>
+    </div>
+    `
+);
         const notificationData = new notification({
             type: "signup",
             data: {
@@ -134,7 +253,6 @@ export async function createUser(req: any, res: Response): Promise<void> {
         });
         await notificationData.save();
         res.json({newUser, token});
-
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
         res.status(400).send("something went wrong.");

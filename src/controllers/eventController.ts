@@ -860,8 +860,8 @@ export async function sendBulkInvitations(req: Request, res: Response) {
     req.body.users.forEach((x: { email: any; fullName: any; }) => {
       sendEmail(
         x.email,
-        'New pool created!',
         "Clic Club invitation",
+        'New pool created!',
         `<h1>Hello ${x.fullName}</h1> <p>You'r invited to ${req.body.eventTitle} pool!</p> <p>Go to https://clicclub.cc/ to join.</p>`
       );
     })
