@@ -181,49 +181,19 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 }
 
 export async function getEventForApp(req: any, res: Response): Promise<void> {
-    try {
-        const resultOld = await Event.findOne({ _id: req.params.id });
-        res.json(resultOld);
-        // const newResult = await eventUser.find({ event_id: req.params.id });
-        // const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } });
-        // const result: any = resultOld;
+  try {
+    const result = await Event.findOne({ _id: req.params.id });
+    const resultOld: any = result!.toObject();
+    if (new Date() > new Date(resultOld?.date_time + ":00Z")) {
+      const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
+      const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
+      resultOld!.participants = users;
+      res.json(resultOld);
+    } else { res.json(resultOld); }
 
-        // if (resultOld?.event_durations && resultOld.event_durations.length > 0) {
-        //     result.event_end_time = hasTimePassedPlus3Hours(resultOld.date_time, resultOld.event_durations[0]).adjustedTime;
-        // }
-
-
-        // const userObj: any = await User.findOne({ _id: req.user });
-        // const user = {
-        //     user_id: req.user,
-        //     username: userObj.userName,
-        //     imgURL: userObj.imgURL,
-        //     gender: userObj.gender[0],
-        //     interested: userObj.gender[0] === 'M' ? "F" : "M"
-        // }
-
-        // let flag = true;
-
-        // for (const x of newResult) {
-        //     if (x.user_id == req.user) {
-        //         if (x.status == "approved") {
-        //             res.json({ members: users, result, btnTxt: 'cancel', user });
-        //         } else {
-        //             res.json({ members: users, result, btnTxt: 'pending', user });
-        //         }
-        //         flag = false;
-        //         break;
-        //     }
-        // }
-
-        // if (flag) {
-        //     res.json({ members: users, result, btnTxt: 'join', user });
-        // }
-
-
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
-    }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function getUserPool(req: any, res: Response): Promise<void> {
