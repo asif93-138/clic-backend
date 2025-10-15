@@ -139,7 +139,7 @@ await sendEmail(
             <div style="text-align: center; margin-bottom: 30px;">
                 <img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" 
                      width="120" 
-                     style="border-radius: 50%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
+                     style="border-radius: 5%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
                      alt="Profile" />
             </div>
             
