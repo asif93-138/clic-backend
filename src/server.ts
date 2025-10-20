@@ -386,8 +386,8 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
       console.log({...socketEmission, timer});
 
       // Emit match event to all users in the event room
-      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(1), uid: 1});
-      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(2), uid: 2});
+      io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(1), uid: 1, remoteUID: 1});
+      io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(2), uid: 2, remoteUID: 2});
    
      
       console.log('----- pairing function ended -----');
