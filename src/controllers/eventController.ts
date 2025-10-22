@@ -141,7 +141,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         const newResult = await eventUser.find({ event_id: req.params.id }, "user_id status");
         const users = await User.find(
           {_id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } }, 
-          { password: 0, expoPushToken: 0, ques_ans: 0 }
+          { password: 0, expoPushToken: 0 }
         );
         const pending_members: any = []; const approved_members: any = []; const waiting_members: any = [];
         newResult.forEach(x => {
