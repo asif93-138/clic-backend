@@ -16,6 +16,7 @@ import Matched from '../models/matched';
 import invitations from '../models/invitations';
 import cloudinary from '../utils/cloudinary';
 import { ObjectId } from 'mongodb';
+import mongoose from "mongoose";
 
           const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -143,6 +144,11 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
           {_id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } }, 
           { password: 0, expoPushToken: 0 }
         );
+        const invitationList = await User.find({
+           _id: {
+            $nin: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)].map(x => new mongoose.Types.ObjectId(x))
+           }, approved: "approved"
+        }, "userName email imgURL");
         const pending_members: any = []; const approved_members: any = []; const waiting_members: any = [];
         newResult.forEach(x => {
             if (x.status == 'approved') {
@@ -173,7 +179,8 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         invites.forEach(x => invited[x.user_id] = x);
         res.json({
            members: users, result, invited, approved_members, pending_members, waiting_members,
-           invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id) 
+           invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id),
+           invitationList
         });
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
@@ -423,6 +430,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 }
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
+    console.log(req.body);
     try {
         const { eventId, btnTxt, status } = req.body;
         const invitationCheck = await invitations.findOne({event_id: eventId, user_id: req.user});

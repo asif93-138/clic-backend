@@ -283,7 +283,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
         const result = await User.findByIdAndUpdate(req.params.id, {approved: req.body.approved});
         if (req.body.approved == "approved") {
             await sendEmail(
-                req.body.email,
+                result?.email || "",
                 "Welcome to Clic Club",
                 "Congratulations! You're a member of Clic Club. You can now sign up to any of our scheduled online events, called Pools, to meet a selection of our members. Have fun!"
             ); 
@@ -449,6 +449,12 @@ export async function getInvites(req: any, res: Response) {
     const invites = await invitations.find({user_id: req.user});
     res.json(invites);
 }
+
+export async function getInvitesBanner(req: any, res: Response) {
+    const invites = await invitations.find({user_id: req.user, status: "invited"});
+    res.json(invites);
+}
+
 export async function updateInvite(req: any, res: Response) {
     try {
         if (req.body.status == 'rejected') {
