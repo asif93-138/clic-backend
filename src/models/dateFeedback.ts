@@ -6,9 +6,7 @@ const DateFeedbackSchema = new mongoose.Schema(
     user_id: { type: String, required: true },
     other_user_id: { type: String, required: true },
     dateRoomDocId: { type: String, required: true },
-    swipeRight: { type: String, required: true },
-    wantedToTalkLonger: { type: String, required: true },
-    rating: {type: Number, required: true},
+    feedback: {type: Object, required: true}
   },
   { timestamps: true }
 );

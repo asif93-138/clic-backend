@@ -18,7 +18,7 @@ import cloudinary from '../utils/cloudinary';
 import { ObjectId } from 'mongodb';
 import mongoose from "mongoose";
 
-          const getGenderCountsByEvent = async (eventId: string) => {
+const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
     // 1) Match only the approved EventUser docs for the given event_id
     {
@@ -80,123 +80,134 @@ import mongoose from "mongoose";
 
 
 export async function getAllEvents(req: Request, res: Response): Promise<void> {
-    try {
-        const result: any[] = [];
-        const events: any = await Event.find();
-        for (const event of events) {
-          const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
-          const pendingList = await eventUser.countDocuments({event_id: event._id, status: "pending"});
-          const approvedList = await eventUser.countDocuments({event_id: event._id, status: "approved"});
-          const waitingList = await eventUser.countDocuments({event_id: event._id, status: "waiting"});
+  try {
+    const result: any[] = [];
+    const events: any = await Event.find();
+    for (const event of events) {
+      const dataObj: any = event.toObject(); // Convert Mongoose doc to plain object
+      const pendingList = await eventUser.countDocuments({ event_id: event._id, status: "pending" });
+      const approvedList = await eventUser.countDocuments({ event_id: event._id, status: "approved" });
+      const waitingList = await eventUser.countDocuments({ event_id: event._id, status: "waiting" });
 
-const genderCounts = await getGenderCountsByEvent(event._id.toString());
-const cancelList = await EventCancellation.countDocuments({event_id: event._id});
-          dataObj.approvedGenderC = genderCounts;
-          dataObj.pending = pendingList;
-          dataObj.approved = approvedList;
-          dataObj.waiting = waitingList;
-          dataObj.totalCancelled = cancelList;
-          result.push(dataObj);
-        }
-        res.json(result);
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+      const genderCounts = await getGenderCountsByEvent(event._id.toString());
+      const cancelList = await EventCancellation.countDocuments({ event_id: event._id });
+      dataObj.approvedGenderC = genderCounts;
+      dataObj.pending = pendingList;
+      dataObj.approved = approvedList;
+      dataObj.waiting = waitingList;
+      dataObj.totalCancelled = cancelList;
+      result.push(dataObj);
     }
+    res.json(result);
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function getEvent(req: Request, res: Response): Promise<void> {
-    try {
-        const resultOld = await Event.findOne({ _id: req.params.id });
-        const result: any = resultOld!.toObject();
-        const genderCounts = await getGenderCountsByEvent(req.params.id);
-        const cancelList = await EventCancellation.find({event_id: req.params.id}, "user_id");
-        const attendees = await WaitingRoom.countDocuments({event_id: req.params.id});
-        const attendeesM = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "M"});
-        const attendeesF = await WaitingRoom.countDocuments({event_id: req.params.id, gender: "F"});
-        const callList = await CallHistory.countDocuments({event_id: req.params.id});
-        const failedClic = await FailedClic.countDocuments({event_id: req.params.id});
-        const matchList = await Matched.find({event_id: req.params.id});
-        const latestDoc = await WaitingRoom.findOne({ event_id: req.params.id })
-                    .sort({ updatedAt: -1 }) // Sort by updatedAt descending
-                    .select('updatedAt')     // Select only the updatedAt field
-                    .lean();
-        const leftEarly = await CallHistory.countDocuments({event_id: req.params.id, left_early: true});
-        const invites = await invitations.find({event_id: req.params.id}, "user_id status");
-        var counts: { [key: number]: number } = {};
-      matchList.forEach(x => {
-        if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
-        else counts[x.count] = 1;
-      });
-        result.approvedGenderC = genderCounts;
-        result.totalCancelled = cancelList.length;
-        result.attendees = attendees;
-        result.attendeesM = attendeesM;
-        result.attendeesF = attendeesF;
-        result.totalCall = callList;
-        result.failedClic = failedClic;
-        result.totalMatch = matchList.length;
-        result.lastExit = latestDoc?.updatedAt || null;
-        result.leftEarly = leftEarly;
-        result.matchCounts = counts;
-        result.totalExts = matchList.reduce((x, y) => x + y.count, 0);
-        const newResult = await eventUser.find({ event_id: req.params.id }, "user_id status");
-        const users = await User.find(
-          {_id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } }, 
-          { password: 0, expoPushToken: 0 }
-        );
-        const invitationList = await User.find({
-           _id: {
-            $nin: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)].map(x => new mongoose.Types.ObjectId(x))
-           }, approved: "approved"
-        }, "userName email imgURL");
-        const pending_members: any = []; const approved_members: any = []; const waiting_members: any = [];
-        newResult.forEach(x => {
-            if (x.status == 'approved') {
-                for (const y of users) {
-                    if (y._id == x.user_id) {
-                        approved_members.push(x.user_id);
-                        break;
-                    }
-                }
-            } else if (x.status == 'pending') {
-                for (const y of users) {
-                    if (y._id == x.user_id) {
-                        pending_members.push(x.user_id);
-                        break;
-                    }
-                }
-            } else {
-                for (const y of users) {
-                    if (y._id == x.user_id) {
-                        waiting_members.push(x.user_id);
-                        break;
-                    }
-                }
-            }
-        });
-        result.noShows = (approved_members.length - attendees);
-        const invited:any = {};
-        invites.forEach(x => invited[x.user_id] = x);
-        res.json({
-           members: users, result, invited, approved_members, pending_members, waiting_members,
-           invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id),
-           invitationList
-        });
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
-    }
+  try {
+    const resultOld = await Event.findOne({ _id: req.params.id });
+    const result: any = resultOld!.toObject();
+    const genderCounts = await getGenderCountsByEvent(req.params.id);
+    const cancelList = await EventCancellation.find({ event_id: req.params.id }, "user_id");
+    const attendees = await WaitingRoom.countDocuments({ event_id: req.params.id });
+    const attendeesM = await WaitingRoom.countDocuments({ event_id: req.params.id, gender: "M" });
+    const attendeesF = await WaitingRoom.countDocuments({ event_id: req.params.id, gender: "F" });
+    const callList = await CallHistory.countDocuments({ event_id: req.params.id });
+    const failedClic = await FailedClic.countDocuments({ event_id: req.params.id });
+    const matchList = await Matched.find({ event_id: req.params.id });
+    const latestDoc = await WaitingRoom.findOne({ event_id: req.params.id })
+      .sort({ updatedAt: -1 }) // Sort by updatedAt descending
+      .select('updatedAt')     // Select only the updatedAt field
+      .lean();
+    const leftEarly = await CallHistory.countDocuments({ event_id: req.params.id, left_early: true });
+    const invites = await invitations.find({ event_id: req.params.id }, "user_id status");
+    var counts: { [key: number]: number } = {};
+    matchList.forEach(x => {
+      if (counts[x.count]) counts[x.count] = counts[x.count] + 1;
+      else counts[x.count] = 1;
+    });
+    result.approvedGenderC = genderCounts;
+    result.totalCancelled = cancelList.length;
+    result.attendees = attendees;
+    result.attendeesM = attendeesM;
+    result.attendeesF = attendeesF;
+    result.totalCall = callList;
+    result.failedClic = failedClic;
+    result.totalMatch = matchList.length;
+    result.lastExit = latestDoc?.updatedAt || null;
+    result.leftEarly = leftEarly;
+    result.matchCounts = counts;
+    result.totalExts = matchList.reduce((x, y) => x + y.count, 0);
+    const newResult = await eventUser.find({ event_id: req.params.id }, "user_id status");
+    const users = await User.find(
+      { _id: { $in: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)] } },
+      { password: 0, expoPushToken: 0 }
+    );
+    const invitationList = await User.find({
+      _id: {
+        $nin: [...newResult.map(x => x.user_id), ...cancelList.map(x => x.user_id), ...invites.map(x => x.user_id)].map(x => new mongoose.Types.ObjectId(x))
+      }, approved: "approved"
+    }, "userName email imgURL");
+    const pending_members: any = []; const approved_members: any = []; const waiting_members: any = [];
+    newResult.forEach(x => {
+      if (x.status == 'approved') {
+        for (const y of users) {
+          if (y._id == x.user_id) {
+            approved_members.push(x.user_id);
+            break;
+          }
+        }
+      } else if (x.status == 'pending') {
+        for (const y of users) {
+          if (y._id == x.user_id) {
+            pending_members.push(x.user_id);
+            break;
+          }
+        }
+      } else {
+        for (const y of users) {
+          if (y._id == x.user_id) {
+            waiting_members.push(x.user_id);
+            break;
+          }
+        }
+      }
+    });
+    result.noShows = (approved_members.length - attendees);
+    const invited: any = {};
+    invites.forEach(x => invited[x.user_id] = x);
+    res.json({
+      members: users, result, invited, approved_members, pending_members, waiting_members,
+      invited_members: invites.map(x => x.user_id), cancelled_members: cancelList.map(x => x.user_id),
+      invitationList
+    });
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function getEventForApp(req: any, res: Response): Promise<void> {
+  console.log("starting");
   try {
     const result = await Event.findOne({ _id: req.params.id });
+    const status = await eventUser.findOne({event_id: req.params.id, user_id: req.user}, "status");
     const resultOld: any = result!.toObject();
     if (new Date() > new Date(resultOld?.date_time + ":00Z")) {
       const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
       const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
       resultOld!.participants = users;
+      if (status) resultOld!.userStatus = status.status;
+      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
+      console.log("done");
       res.json(resultOld);
-    } else { res.json(resultOld); }
+    } else {
+      console.log("ccacacac");
+      if (status) resultOld!.userStatus = status.status;
+      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
+      console.log("done");
+       res.json(resultOld); 
+    }
 
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -205,214 +216,215 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
 
 export async function getUserPool(req: any, res: Response): Promise<void> {
 
-    const userId = req.user;
-    const page = 0;
-    const limit = 100;
+  const userId = req.user;
+  const page = 0;
+  const limit = 100;
 
-    try {
+  try {
 
-// const upcomingEvents = await Event.aggregate([
-//   {
-//     $lookup: {
-//       from: "eventusers",
-//       let: { eventId: "$_id" },
-//       pipeline: [
-//         {
-//           $match: {
-//             $expr: {
-//               $and: [
-//                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
-//                 { $eq: ["$user_id", userId] },
-//               ],
-//             },
-//           },
-//         },
-//       ],
-//       as: "userEntries",
-//     },
-//   },
-//   {
-//     $addFields: {
-//       hasPendingStatus: {
-//         $in: ["pending", "$userEntries.status"],
-//       },
-//       hasApprovedStatus: {
-//         $in: ["approved", "$userEntries.status"],
-//       },
-//       convertedDateTime: {
-//         $toDate: "$date_time"
-//       },
-//       dateTimeDifference: {
-//         $dateDiff: {
-//           startDate: new Date(),
-//           endDate: { $toDate: "$date_time" },
-//           unit: "day"
-//         }
-//       }
-//     },
-//   },
-//   {
-//     $match: {
-//       hasApprovedStatus: false,
-//       $expr: { $gte: [ "$dateTimeDifference", -7 ] }
-//     },
-//   },
-//   {
-//     $project: {
-//       title: 1,
-//       imgURL: 1,
-//       date_time: 1,
-//       userStatus: {
-//         $cond: [
-//           "$hasPendingStatus",
-//           "pending",
-//           "new",
-//         ],
-//       },
-//       createdAt: 1,
-//     },
-//   },
-//   { $sort: { createdAt: -1 } },
-//   { $skip: page * limit },
-//   { $limit: limit },
-// ]);
+    // const upcomingEvents = await Event.aggregate([
+    //   {
+    //     $lookup: {
+    //       from: "eventusers",
+    //       let: { eventId: "$_id" },
+    //       pipeline: [
+    //         {
+    //           $match: {
+    //             $expr: {
+    //               $and: [
+    //                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
+    //                 { $eq: ["$user_id", userId] },
+    //               ],
+    //             },
+    //           },
+    //         },
+    //       ],
+    //       as: "userEntries",
+    //     },
+    //   },
+    //   {
+    //     $addFields: {
+    //       hasPendingStatus: {
+    //         $in: ["pending", "$userEntries.status"],
+    //       },
+    //       hasApprovedStatus: {
+    //         $in: ["approved", "$userEntries.status"],
+    //       },
+    //       convertedDateTime: {
+    //         $toDate: "$date_time"
+    //       },
+    //       dateTimeDifference: {
+    //         $dateDiff: {
+    //           startDate: new Date(),
+    //           endDate: { $toDate: "$date_time" },
+    //           unit: "day"
+    //         }
+    //       }
+    //     },
+    //   },
+    //   {
+    //     $match: {
+    //       hasApprovedStatus: false,
+    //       $expr: { $gte: [ "$dateTimeDifference", -7 ] }
+    //     },
+    //   },
+    //   {
+    //     $project: {
+    //       title: 1,
+    //       imgURL: 1,
+    //       date_time: 1,
+    //       userStatus: {
+    //         $cond: [
+    //           "$hasPendingStatus",
+    //           "pending",
+    //           "new",
+    //         ],
+    //       },
+    //       createdAt: 1,
+    //     },
+    //   },
+    //   { $sort: { createdAt: -1 } },
+    //   { $skip: page * limit },
+    //   { $limit: limit },
+    // ]);
 
-const upcomingEvents = await Event.aggregate([
-  {
-    $lookup: {
-      from: "eventusers",
-      let: { eventId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: ["$event_id", { $toString: "$$eventId" }] },
-                { $eq: ["$user_id", userId] },
-              ],
+    const upcomingEvents = await Event.aggregate([
+      {
+        $lookup: {
+          from: "eventusers",
+          let: { eventId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$event_id", { $toString: "$$eventId" }] },
+                    { $eq: ["$user_id", userId] },
+                  ],
+                },
+              },
             },
-          },
-        },
-      ],
-      as: "userEntries",
-    },
-  },
-  {
-    $addFields: {
-      hasPendingStatus: {
-        $in: ["pending", "$userEntries.status"],
-      },
-      hasWaitingStatus: {
-        $in: ["waiting", "$userEntries.status"],
-      },
-      hasApprovedStatus: {
-        $in: ["approved", "$userEntries.status"],
-      },
-      convertedDateTime: {
-        $toDate: "$date_time"
-      },
-      dateTimeDifference: {
-        $dateDiff: {
-          startDate: new Date(),
-          endDate: { $toDate: "$date_time" },
-          unit: "day"
-        }
-      }
-    },
-  },
-  {
-    $match: {
-      hasApprovedStatus: false,
-      $expr: { $gte: ["$dateTimeDifference", -7] }
-    },
-  },
-  {
-    $project: {
-      title: 1,
-      imgURL: 1,
-      date_time: 1,
-      userStatus: {
-        $switch: {
-          branches: [
-            { case: "$hasPendingStatus", then: "pending" },
-            { case: "$hasWaitingStatus", then: "waiting" },
           ],
-          default: "new"
-        }
+          as: "userEntries",
+        },
       },
-      event_status: 1,
-      createdAt: 1,
-    },
-  },
-  { $sort: { createdAt: -1 } },
-  { $skip: page * limit },
-  { $limit: limit },
-]);
-
-        let arr_1: any[] = [], arr_2: any[] = [];
-        const userResult = await eventUser.find({ user_id: req.user });
-        userResult.forEach((element: any) => {
-            if (element.status === "pending") {
-                arr_1.push(element.event_id);
-            } else if (element.status === "approved") {
-                arr_2.push(element.event_id);
+      {
+        $addFields: {
+          hasPendingStatus: {
+            $in: ["pending", "$userEntries.status"],
+          },
+          hasWaitingStatus: {
+            $in: ["waiting", "$userEntries.status"],
+          },
+          hasApprovedStatus: {
+            $in: ["approved", "$userEntries.status"],
+          },
+          convertedDateTime: {
+            $toDate: "$date_time"
+          },
+          dateTimeDifference: {
+            $dateDiff: {
+              startDate: new Date(),
+              endDate: { $toDate: "$date_time" },
+              unit: "day"
             }
-        });
-        // if (arr_1.length > 0) {
-        //     const pendingResult = await Event.find({ _id: { $in: arr_1 } }, 'title imgURL date_time event_durations').sort({ _id: 1 });
-        //     arr_1 = pendingResult;
-        // }
-        if (arr_2.length > 0) {
-            const approvedResult: any = await Event.find({
-  _id: { $in: arr_2 },
-  date_time: {
-    $gte: new Date(new Date().setDate(new Date().getDate() - 200)).toISOString()
-  }
-}, 'title imgURL date_time event_durations').sort({ createdAt: -1 }).lean();
-            const filteredArr: any[] = [];
-            approvedResult.forEach((x:any) => {
-                x.userStatus = "approved";
-                filteredArr.push(x);
-            })
-            arr_2 = filteredArr;
+          }
+        },
+      },
+      {
+        $match: {
+          hasApprovedStatus: false,
+          $expr: { $gte: ["$dateTimeDifference", -7] }
+        },
+      },
+      {
+        $project: {
+          title: 1,
+          imgURL: 1,
+          date_time: 1,
+          userStatus: {
+            $switch: {
+              branches: [
+                { case: "$hasPendingStatus", then: "pending" },
+                { case: "$hasWaitingStatus", then: "waiting" },
+              ],
+              default: "new"
+            }
+          },
+          event_status: 1,
+          createdAt: 1,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: page * limit },
+      { $limit: limit },
+    ]);
+
+    let arr_1: any[] = [], arr_2: any[] = [];
+    const userResult = await eventUser.find({ user_id: req.user });
+    userResult.forEach((element: any) => {
+      if (element.status === "pending") {
+        arr_1.push(element.event_id);
+      } else if (element.status === "approved") {
+        arr_2.push(element.event_id);
+      }
+    });
+    // if (arr_1.length > 0) {
+    //     const pendingResult = await Event.find({ _id: { $in: arr_1 } }, 'title imgURL date_time event_durations').sort({ _id: 1 });
+    //     arr_1 = pendingResult;
+    // }
+    if (arr_2.length > 0) {
+      const approvedResult: any = await Event.find({
+        _id: { $in: arr_2 },
+        date_time: {
+          $gte: new Date(new Date().setDate(new Date().getDate() - 200)).toISOString()
         }
-
-        const uCObj:any = {};
-        upcomingEvents.forEach(x => {
-            uCObj[x._id] = x;
-        })
-        const aPObj:any = {};
-        arr_2.forEach(x => {
-            aPObj[x._id] = x;
-        })
-
-        res.json({ approved: aPObj, upcoming: uCObj }); //  pending: arr_1,
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+      }, 'title imgURL date_time event_durations').sort({ createdAt: -1 }).lean();
+      const filteredArr: any[] = [];
+      approvedResult.forEach((x: any) => {
+        x.userStatus = "approved";
+        filteredArr.push(x);
+      })
+      arr_2 = filteredArr;
     }
+
+    const uCObj: any = {};
+    upcomingEvents.forEach(x => {
+      if (x.userStatus == "new" && x.event_status == true) x.userStatus = "closed";
+      uCObj[x._id] = x;
+    })
+    const aPObj: any = {};
+    arr_2.forEach(x => {
+      aPObj[x._id] = x;
+    })
+
+    res.json({ approved: aPObj, upcoming: uCObj }); //  pending: arr_1,
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function createEvent(req: any, res: Response): Promise<void> {
-    let createdEvent:any = "";
-    try {
+  let createdEvent: any = "";
+  try {
 
-        if (!req.file) {
-            res.status(400).json({ message: 'No file uploaded' });
-            return;
-        }
-        // http://localhost:5000/uploads/1747643112457-930576226.jpg
-       
-        const dataObj = req.body;
-        dataObj.event_durations = JSON.parse(dataObj.event_durations);
-        dataObj.imgURL = "uploads/" + req.file.filename;
-        dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-        dataObj.extension_limit = Number(dataObj.extension_limit);
-        const insertResult = await Event.create(dataObj);
-        createdEvent = insertResult;
-        res.json(insertResult);
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+    if (!req.file) {
+      res.status(400).json({ message: 'No file uploaded' });
+      return;
     }
+    // http://localhost:5000/uploads/1747643112457-930576226.jpg
+
+    const dataObj = req.body;
+    dataObj.event_durations = JSON.parse(dataObj.event_durations);
+    dataObj.imgURL = "uploads/" + req.file.filename;
+    dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+    dataObj.extension_limit = Number(dataObj.extension_limit);
+    const insertResult = await Event.create(dataObj);
+    createdEvent = insertResult;
+    res.json(insertResult);
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
   //     res.on('finish', async () => {
   //     const users = await User.find({}).select('email userName expoPushToken');
 
@@ -430,211 +442,230 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 }
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
-    console.log(req.body);
-    try {
-        const { eventId, btnTxt, status } = req.body;
-        const invitationCheck = await invitations.findOne({event_id: eventId, user_id: req.user});
-        const dataObj_1 = { event_id: eventId, user_id: req.user, btnTxt, status };
-        if (dataObj_1.btnTxt === 'join') {
-        if (invitationCheck) {
-            dataObj_1.status = 'approved';
-            const insertResult = await eventUser.create(dataObj_1);
-            if (insertResult._id) {
-                await invitations.findByIdAndUpdate(invitationCheck._id, {status: "accepted"});
-                await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
-                res.json({ btnTxt: 'approved' });
-            } else {
-                res.status(400).json({ message: "failed!" });
-            }
-        } else {
-            dataObj_1.status = 'pending';
-            const insertResult = await eventUser.create(dataObj_1);
-            if (insertResult._id) {
-                        const eventData = await Event.findById(eventId, 'title');
-                        const userData = await User.findById(req.user, 'userName');
-                        const notificationData = new notification({
-                            type: "rsvp",
-                            data: {
-                                event_id: eventId,
-                                user_id: req.user,
-                                eventTitle: eventData?.title,
-                                userName: userData?.userName
-                            }
-                        });
-                        await notificationData.save();
-                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
-                res.json({ btnTxt: 'pending' });
-            } else {
-                res.status(400).json({ message: "failed!" });
-            }
-        }
-        } else if (dataObj_1.btnTxt === 'waiting') {
-                  if (invitationCheck) {
-            dataObj_1.status = 'approved';
-            const insertResult = await eventUser.create(dataObj_1);
-            if (insertResult._id) {
-                await invitations.findByIdAndUpdate(invitationCheck._id, {status: "accepted"});
-                await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
-                res.json({ btnTxt: 'approved' });
-            } else {
-                res.status(400).json({ message: "failed!" });
-            }
-        } else {
-            dataObj_1.status = 'waiting';
-            const insertResult = await eventUser.create(dataObj_1);
-            if (insertResult._id) {
-                        const eventData = await Event.findById(eventId, 'title');
-                        const userData = await User.findById(req.user, 'userName');
-                        const notificationData = new notification({
-                            type: "rsvp",
-                            data: {
-                                event_id: eventId,
-                                user_id: req.user,
-                                eventTitle: eventData?.title,
-                                userName: userData?.userName
-                            }
-                        });
-                        await notificationData.save();
-                        await EventCancellation.deleteOne({event_id: dataObj_1.event_id, user_id: dataObj_1.user_id});
-                res.json({ btnTxt: 'waiting' });
-            } else {
-                res.status(400).json({ message: "failed!" });
-            }
-        }
-        } else {
-            const deleteResult = await eventUser.deleteOne({
-                user_id: dataObj_1.user_id,
-                event_id: dataObj_1.event_id
-            });
-        
-            const filter = {event_id: dataObj_1.event_id, user_id: dataObj_1.user_id};
-
-            const update = {
-              $inc: { count: 1 },  // increment count by 1
-              $setOnInsert: { cancelledBy: 'user' }  // set other fields only if inserted
-            };
-
-            const options = {
-                  upsert: true,   // create if doesn't exist
-                  new: true       // return the updated/new document
-            };
-            const cancelInsertion = await EventCancellation.findOneAndUpdate(filter, update, options);
-            if (invitationCheck) await invitations.findByIdAndUpdate(invitationCheck._id, {status: "rejected"});
-            if (deleteResult.acknowledged && cancelInsertion) {
-                res.json({ btnTxt: 'join' });
-            } else {
-                res.status(400).json({ message: "failed!" });
-            }
-        }
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+  console.log(req.body);
+  try {
+    const { eventId, userStatus } = req.body;
+    let status: "new" | "closed" | "waiting" | "pending" | "approved" | string | undefined;
+    const invitationCheck = await invitations.findOne({ event_id: eventId, user_id: req.user });
+    const dataObj_1 = { event_id: eventId, user_id: req.user, userStatus, status };
+    // Edgecase: Stale data from userStatus
+    if (userStatus == "new" || userStatus == "closed") {
+      const poolStatusCheck = await Event.findOne({ _id: eventId }, "event_status");
+      if (poolStatusCheck?.event_status === true && userStatus == "new") dataObj_1.userStatus = "closed";
+      if (poolStatusCheck?.event_status === false && userStatus == "closed") dataObj_1.userStatus = "new";
     }
+    //
+
+    // refactor:switch case
+    if (dataObj_1.userStatus === 'new') {
+      if (invitationCheck) {
+        dataObj_1.status = 'approved';
+        const insertResult = await eventUser.create(dataObj_1);
+        if (insertResult._id) {
+          await invitations.findByIdAndUpdate(invitationCheck._id, { status: "accepted" });
+          await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+          res.json({ userStatus: dataObj_1.status });
+        } else {
+          res.status(400).json({ message: "failed!" });
+        }
+      } else {
+        dataObj_1.status = 'pending';
+        const insertResult = await eventUser.create(dataObj_1);
+        if (insertResult._id) {
+          const eventData = await Event.findById(eventId, 'title');
+          const userData = await User.findById(req.user, 'userName');
+          const notificationData = new notification({
+            type: "rsvp",
+            data: {
+              event_id: eventId,
+              user_id: req.user,
+              eventTitle: eventData?.title,
+              userName: userData?.userName
+            }
+          });
+          await notificationData.save();
+          await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+          res.json({ userStatus: dataObj_1.status });
+        } else {
+          res.status(400).json({ message: "failed!" });
+        }
+      }
+    } else if (dataObj_1.userStatus === 'closed') {
+      if (invitationCheck) {
+        dataObj_1.status = 'approved';
+        const insertResult = await eventUser.create(dataObj_1);
+        if (insertResult._id) {
+          await invitations.findByIdAndUpdate(invitationCheck._id, { status: "accepted" });
+          await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+          res.json({ userStatus: dataObj_1.status });
+        } else {
+          res.status(400).json({ message: "failed!" });
+        }
+      } else {
+        dataObj_1.status = 'waiting';
+        const insertResult = await eventUser.create(dataObj_1);
+        if (insertResult._id) {
+          const eventData = await Event.findById(eventId, 'title');
+          const userData = await User.findById(req.user, 'userName');
+          const notificationData = new notification({
+            type: "rsvp",
+            data: {
+              event_id: eventId,
+              user_id: req.user,
+              eventTitle: eventData?.title,
+              userName: userData?.userName
+            }
+          });
+          await notificationData.save();
+          await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+          res.json({ userStatus: dataObj_1.status });
+        } else {
+          res.status(400).json({ message: "failed!" });
+        }
+      }
+    } else if (dataObj_1.userStatus === 'waiting') {
+      res.status(400).json({ message: "invalid request!" });
+    } else if (dataObj_1.userStatus === 'pending') {
+      res.status(400).json({ message: "invalid request!" });
+    } else if (dataObj_1.userStatus === 'approved') {
+      const deleteResult = await eventUser.deleteOne({
+        user_id: dataObj_1.user_id,
+        event_id: dataObj_1.event_id
+      });
+
+      const filter = { event_id: dataObj_1.event_id, user_id: dataObj_1.user_id };
+
+      const update = {
+        $inc: { count: 1 },  // increment count by 1
+        $setOnInsert: { cancelledBy: 'user' }  // set other fields only if inserted
+      };
+
+      const options = {
+        upsert: true,   // create if doesn't exist
+        new: true       // return the updated/new document
+      };
+      const cancelInsertion = await EventCancellation.findOneAndUpdate(filter, update, options);
+      if (invitationCheck) await invitations.findByIdAndUpdate(invitationCheck._id, { status: "rejected" });
+      if (deleteResult.acknowledged && cancelInsertion) {
+        const poolStatusCheck = await Event.findOne({ _id: eventId }, "event_status");
+        if (poolStatusCheck?.event_status === true) status = "closed";
+        else status = "new";
+        res.json({ userStatus: status });
+      } else {
+        res.status(400).json({ message: "failed!" });
+      }
+    } else {
+      res.status(400).json({ message: "invalid user status!" });
+    }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function approveEventUser(req: Request, res: Response): Promise<void> {
-    try {
-        const dataObj_1 = req.body.firstObj;
-        const dataObj_2 = req.body.secondObj;
-        const eventUserResult = await eventUser.updateOne(
-            { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
-            { $set: dataObj_2 }
-        );
-        if (eventUserResult.acknowledged) {
-            res.json({ message: "Successfully approved user!" });
-        } else {
-            res.status(400).json({ message: "failed!" });
-        }
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+  try {
+    const dataObj_1 = req.body.firstObj;
+    const dataObj_2 = req.body.secondObj;
+    const eventUserResult = await eventUser.updateOne(
+      { user_id: dataObj_1.user_id, event_id: dataObj_1.event_id },
+      { $set: dataObj_2 }
+    );
+    if (eventUserResult.acknowledged) {
+      res.json({ message: "Successfully approved user!" });
+    } else {
+      res.status(400).json({ message: "failed!" });
     }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function rejectEventUser(req: Request, res: Response): Promise<void> {
-    try {
-        const eventUserResult = await eventUser.deleteOne({
-                user_id: req.body.user_id,
-                event_id: req.body.event_id
-            });
-        if (eventUserResult.acknowledged) {
-            res.json({ message: "Successfully removed user!" });
-        } else {
-            res.status(400).json({ message: "failed!" });
-        }
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+  try {
+    const eventUserResult = await eventUser.deleteOne({
+      user_id: req.body.user_id,
+      event_id: req.body.event_id
+    });
+    if (eventUserResult.acknowledged) {
+      res.json({ message: "Successfully removed user!" });
+    } else {
+      res.status(400).json({ message: "failed!" });
     }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function updateEvent(req: any, res: Response): Promise<void> {
-    // console.log("Request Params:", req.params);
-    // console.log("Request Obj:", req.body);
-    // console.log("Request Obj:", req.file);
+  // console.log("Request Params:", req.params);
+  // console.log("Request Obj:", req.body);
+  // console.log("Request Obj:", req.file);
 
-    try {
-        if (!req.params || !req.params.id) {
-            res.status(400).json({ message: 'Event ID is required' });
-            return;
-        }
-
-        if (req.file) {
-            // console.log(req.file);
-
-            // Delete previous file from local storage
-            fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
-
-            // Delete previous file from cloud
-            const parts = req.body.cloud_imgURL.split("/");
-            const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
-            await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
-
-            const dataObj = req.body;
-            dataObj.imgURL = "uploads/" + req.file.filename;
-            dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-            dataObj.event_durations = JSON.parse(dataObj.event_durations);
-            dataObj.extension_limit = Number(dataObj.extension_limit);
-            dataObj.event_status = dataObj.event_status == "true"? true : false;
-            const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
-            res.json(result);
-        } else {
-            const dataObj = req.body;
-            dataObj.event_durations = JSON.parse(dataObj.event_durations);
-            dataObj.extension_limit = Number(dataObj.extension_limit);
-            dataObj.event_status = dataObj.event_status == "true"? true : false;
-            const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
-            res.json(result);
-        }
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+  try {
+    if (!req.params || !req.params.id) {
+      res.status(400).json({ message: 'Event ID is required' });
+      return;
     }
+
+    if (req.file) {
+      // console.log(req.file);
+
+      // Delete previous file from local storage
+      fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
+
+      // Delete previous file from cloud
+      const parts = req.body.cloud_imgURL.split("/");
+      const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
+      await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+
+      const dataObj = req.body;
+      dataObj.imgURL = "uploads/" + req.file.filename;
+      dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+      dataObj.event_durations = JSON.parse(dataObj.event_durations);
+      dataObj.extension_limit = Number(dataObj.extension_limit);
+      dataObj.event_status = dataObj.event_status == "true" ? true : false;
+      const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
+      res.json(result);
+    } else {
+      const dataObj = req.body;
+      dataObj.event_durations = JSON.parse(dataObj.event_durations);
+      dataObj.extension_limit = Number(dataObj.extension_limit);
+      dataObj.event_status = dataObj.event_status == "true" ? true : false;
+      const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
+      res.json(result);
+    }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function eventUserStatus(req: any, res: Response): Promise<void> {
-    try {
-        const event_id = req.params.id;
-        const user_id = req.user;
-        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
-        if (!eventUserResult) {
-          const event = await Event.findOne({ _id: req.params.id }, "event_status");
-          res.json({status: event?.event_status === true ? "join waitlist" : "join"});
-        } else {res.json({status: eventUserResult?.status});}
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
-    }
+  try {
+    const event_id = req.params.id;
+    const user_id = req.user;
+    const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
+    if (!eventUserResult) {
+      const event = await Event.findOne({ _id: req.params.id }, "event_status");
+      res.json({ status: event?.event_status === true ? "join waitlist" : "join" });
+    } else { res.json({ status: eventUserResult?.status }); }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function eventUserStatusAdmin(req: Request, res: Response): Promise<void> {
-    try {
-        const event_id = req.query.event_id;
-        const user_id = req.query.user_id;
-        const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
-        res.json({status: eventUserResult?.status});
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
-    }
+  try {
+    const event_id = req.query.event_id;
+    const user_id = req.query.user_id;
+    const eventUserResult = await eventUser.findOne({ user_id: user_id, event_id: event_id }, "status");
+    res.json({ status: eventUserResult?.status });
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
 }
 
 export async function uploadTesting(req: Request, res: Response) {
-    res.status(200).json({file: req.file});
+  res.status(200).json({ file: req.file });
 }
 
 export async function deletePhoto(req: any, res: Response) {
@@ -653,8 +684,8 @@ export async function deletePhoto(req: any, res: Response) {
 }
 
 export async function homePageData(req: any, res: Response) {
-    const result = await getApprovedOppositeGenderUsersInFutureEvents(req.user);
-    res.json(result);
+  const result = await getApprovedOppositeGenderUsersInFutureEvents(req.user);
+  res.json(result);
 }
 
 export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: string) {
@@ -793,38 +824,38 @@ export const getFutureEvents = async (req: Request, res: Response) => {
     res.status(500).json(err);
   }
 };
-export const getWaitingList = async (req : Request, res: Response) => {
+export const getWaitingList = async (req: Request, res: Response) => {
   try {
-      const events = await Event.find({
+    const events = await Event.find({
       date_time: { $gt: new Date().toISOString().slice(0, 16) }, _id: { $ne: new ObjectId(req.params.id) }
     }).select("title date_time").exec();
-  const eventUsers = await eventUser.find({event_id: {$in: events.map((x:any) => x._id.toString())}, status: "waiting"}, "user_id event_id");
-  const users = await User.find({_id: {$in: eventUsers.map(x => x.user_id)}}, "userName imgURL gender");
-  const WaitingList:any = [];
-  eventUsers.forEach(x => {
-    const dataItem:any = {};
-    dataItem.event_id = x.event_id;
-    dataItem.user_id = x.user_id;
-    for (const y of users) {
-      // Ensure y._id is treated as a string or ObjectId
-      if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
-        if (y._id.toString() == x.user_id) {
-          dataItem.userName = y.userName; dataItem.imgURL = y.imgURL; dataItem.gender = y.gender;
-          break;
+    const eventUsers = await eventUser.find({ event_id: { $in: events.map((x: any) => x._id.toString()) }, status: "waiting" }, "user_id event_id");
+    const users = await User.find({ _id: { $in: eventUsers.map(x => x.user_id) } }, "userName imgURL gender");
+    const WaitingList: any = [];
+    eventUsers.forEach(x => {
+      const dataItem: any = {};
+      dataItem.event_id = x.event_id;
+      dataItem.user_id = x.user_id;
+      for (const y of users) {
+        // Ensure y._id is treated as a string or ObjectId
+        if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
+          if (y._id.toString() == x.user_id) {
+            dataItem.userName = y.userName; dataItem.imgURL = y.imgURL; dataItem.gender = y.gender;
+            break;
+          }
         }
       }
-    }
-    for (const y of events) {
-      // Ensure y._id is treated as a string or ObjectId
-      if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
-        if (y._id.toString() == x.event_id) {
-          dataItem.title = y.title; dataItem.date_time = y.date_time;
-          break;
+      for (const y of events) {
+        // Ensure y._id is treated as a string or ObjectId
+        if (typeof y._id === "string" || (typeof y._id === "object" && y._id !== null && "toString" in y._id)) {
+          if (y._id.toString() == x.event_id) {
+            dataItem.title = y.title; dataItem.date_time = y.date_time;
+            break;
+          }
         }
       }
-    }
-    WaitingList.push(dataItem);
-  });
+      WaitingList.push(dataItem);
+    });
     res.json(WaitingList);
   } catch (err) {
     console.log("Failed to fetch waiting list: " + err);

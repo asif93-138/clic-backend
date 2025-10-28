@@ -451,7 +451,8 @@ export async function getInvites(req: any, res: Response) {
 }
 
 export async function getInvitesBanner(req: any, res: Response) {
-    const invites = await invitations.find({user_id: req.user, status: "invited"});
+    const invites = await invitations.countDocuments({user_id: req.user, status: "invited"});
+    console.log(invites, typeof invites);
     res.json(invites);
 }
 
