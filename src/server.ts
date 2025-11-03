@@ -206,6 +206,15 @@ async function eventJoining(req: any, res: any) {
   console.log('----- JOIN ENDED -----');
 }
 
+app.put("/leaveDatingSession", async (req) => {
+  const result:any = await DatingRoom.findOne({ event_id: req.body.event_id, dateRoomId: req.body.dateRoomId}, "sessionExpired");
+  if (!result.sessionExpired) {
+    await DatingRoom.findByIdAndUpdate(result._id, {sessionExpired: true});
+    console.log(`dating_session_left:${req.body.dateRoomId}`);
+    io.emit(`dating_session_left:${req.body.dateRoomId}`);
+  }
+});
+
 app.put('/leaveDatingRoom', async (req, res) => {
   console.log('--- LEAVE DATING STARTED ---');
   // await onLeave(req.body.event_id, req.body.user_id, req.body.isDisconnected, res);

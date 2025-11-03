@@ -7,6 +7,7 @@ const DatingRoomSchema = new mongoose.Schema(
     userData: {type: [Object], required: true},
     dateRoomId: {type: String, required: true},
     extension: {type: [String], required: true},
+    sessionExpired: {type: Boolean},
   },
   { timestamps: true }
 );
