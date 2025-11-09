@@ -230,7 +230,7 @@ await sendEmail(
          
             <div style="text-align: center; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
                 <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">View complete member details</p>
-                <a href="https://skyblue-alpaca-975080.hostingersite.com/" 
+                <a href="https://admin.clicclub.cc/" 
                    style="display: inline-block; padding: 12px 30px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
                     Visit Admin Panel
                 </a>
