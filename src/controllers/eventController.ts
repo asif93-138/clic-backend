@@ -188,7 +188,6 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 }
 
 export async function getEventForApp(req: any, res: Response): Promise<void> {
-  console.log("starting");
   try {
     const result = await Event.findOne({ _id: req.params.id });
     const status = await eventUser.findOne({event_id: req.params.id, user_id: req.user}, "status");
@@ -199,13 +198,10 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
       resultOld!.participants = users;
       if (status) resultOld!.userStatus = status.status;
       else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      console.log("done");
       res.json(resultOld);
     } else {
-      console.log("ccacacac");
       if (status) resultOld!.userStatus = status.status;
       else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      console.log("done");
        res.json(resultOld); 
     }
 
@@ -442,7 +438,6 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 }
 
 export async function applyEvent(req: any, res: Response): Promise<void> {
-  console.log(req.body);
   try {
     const { eventId, userStatus } = req.body;
     let status: "new" | "closed" | "waiting" | "pending" | "approved" | string | undefined;
@@ -597,9 +592,6 @@ export async function rejectEventUser(req: Request, res: Response): Promise<void
 }
 
 export async function updateEvent(req: any, res: Response): Promise<void> {
-  // console.log("Request Params:", req.params);
-  // console.log("Request Obj:", req.body);
-  // console.log("Request Obj:", req.file);
 
   try {
     if (!req.params || !req.params.id) {
@@ -608,8 +600,6 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
     }
 
     if (req.file) {
-      // console.log(req.file);
-
       // Delete previous file from local storage
       fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
 
@@ -865,7 +855,6 @@ export const getWaitingList = async (req: Request, res: Response) => {
 
 export async function sendBulkInvitations(req: Request, res: Response) {
   try {
-    console.log(req.body);
     req.body.users.forEach((x: { email: any; fullName: any; }) => {
       sendEmail(
         x.email,

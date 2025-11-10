@@ -13,11 +13,9 @@ const extractObjectIdString: ExtractObjectIdString = (objectId) => {
 };
 
 export async function userLogin(req: Request, res: Response): Promise<void> {
-    console.log(req.body.email, req.body.password);
     try {
         let ID;
         const isExists = await User.findOne({ email: req.body.email });
-        console.log(isExists);
         if (isExists?._id instanceof mongoose.Types.ObjectId) {
             ID = extractObjectIdString(isExists._id);
         }

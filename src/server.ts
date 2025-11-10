@@ -30,7 +30,6 @@ import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 dotenv.config();
 
-// console.log(process.env.PORT);   || 5000
 
 const app = express();
 const server = http.createServer(app);
@@ -40,7 +39,6 @@ const APP_ID = process.env.AGORA_APP_ID;
 const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 
 
-// Middleware to parse JSON and URL-encoded request bodies
 app.use(express.json());
 app.use(cors());
 
@@ -53,8 +51,8 @@ defineNotificationJob(agenda);
 // Start Agenda
 (async () => {
 agenda.on('ready', async () => {
-  // console.log("Agenda is ready");
-  await agenda.start(); // <== CRITICAL
+  
+  await agenda.start(); 
 });
 })();
 
@@ -75,24 +73,19 @@ io.on('connection', (socket: any) => {
   socket.user_id = user_id;
   socket.gender = gender;
   socket.interested = interested;
-  console.log('Client connected:', socket.id);
-
 
   socket.on('disconnect', () => {
     const event_id = socket.event_id;
     const user_id = socket.user_id;
     const gender = socket.gender;
     const interested = socket.interested;
-    console.log('Client disconnected:', socket.id);
     disconnectUser(event_id, { user_id, gender, interested });
   });
 });
 
 async function disconnectUser(event_id: any, user: any) {
-  console.log('- disconnectUser Function started -');
   await leaveDatingRoom(event_id, user.user_id, true);
   await eventLeaving({ event_id, user });
-  console.log('- disconnectUser Function ended -');
 }
 
 app.post('/join', async (req, res) => {
@@ -155,9 +148,7 @@ async function liveMatches(data: any) {
 }
 
 async function eventJoining(req: any, res: any) {
-  console.log('----- JOIN STARTED -----');
   const { event_id, user, rejoin } = req.body;
-  // console.log("rejoin", rejoin);
   const eventData = await Event.findOne({ _id: event_id });
   if (!eventData) {
     res.status(404).json({ message: "Event not found!" });
@@ -203,34 +194,28 @@ async function eventJoining(req: any, res: any) {
   res.on('finish', () => {
     if (eventData.event_durations) pairingFunction(user, event_id, eventData.event_durations[0]);
   });
-  console.log('----- JOIN ENDED -----');
 }
 
 app.put("/leaveDatingSession", async (req) => {
   const result:any = await DatingRoom.findOne({ event_id: req.body.event_id, dateRoomId: req.body.dateRoomId}, "sessionExpired");
   if (!result.sessionExpired) {
     await DatingRoom.findByIdAndUpdate(result._id, {sessionExpired: true});
-    console.log(`dating_session_left:${req.body.dateRoomId}`);
     io.emit(`dating_session_left:${req.body.dateRoomId}`);
   }
 });
 
 app.put('/leaveDatingRoom', async (req, res) => {
-  console.log('--- LEAVE DATING STARTED ---');
   // await onLeave(req.body.event_id, req.body.user_id, req.body.isDisconnected, res);
   leaveDatingRoom(req.body.event_id, req.body.user_id, req.body.left_early);
-  console.log('--- LEAVE DATING ENDED ---');
   res.json({ message: 'leaving dating room..' });
 })
 
 async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
-  console.log('----- leaveDatingRoom function started -----');
   const result: any = await DatingRoom.find({ event_id: event_id });
   let data;
   //conditional
   for (let i = 0; i < result.length; i++) {
     if (result[i].pair.includes(user_id)) {
-      console.log(`[CONNECTED] User ${user_id} leaving dating_room at index ${i} and will join waiting_room`);
       data = result[i];
       // leaveDating and joinWaiting logic here
       // const updatedArr = result.toSpliced(i, 1);
@@ -245,14 +230,12 @@ async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
       if (data.extension.length) {
         await FailedClic.create({event_id: data.event_id, dateRoomDocId: data._id, person_1: data.pair[0], person_2: data.pair[1], requested: data.extension[0]});
       }
-      console.log(`has_left:${data.dateRoomId}`);
       // emit
       io.emit(`has_left:${data.dateRoomId}`);
 
       break;
     }
   }
-  console.log('----- leaveDatingRoom function ended -----');
 }
 
 app.delete("/leave_event", async (req, res) => {
@@ -261,16 +244,12 @@ app.delete("/leave_event", async (req, res) => {
 });
 
 async function eventLeaving(params: any) {
-  console.log('--- eventLeaving function started ---');
   // await WaitingRoom.deleteOne({event_id: params.event_id, user_id: params.user.user_id});
   await WaitingRoom.findOneAndUpdate({event_id: params.event_id, user_id: params.user.user_id}, {status: "inactive", in_event: false});
-  console.log("######## emission from leaving!");
   io.emit(`${params.event_id}-${params.user.gender}-potential-matches-left`, params.user.user_id);
-  console.log('--- eventLeaving function ended ---');
 }
 
 app.put('/extend', async (req: any, res: any) => {
-  console.log('---  /extend api started ---');
   const { user_id, dateRoomId, event_id } = req.body;
   const result: any = await DatingRoom.findOne({ event_id: event_id, dateRoomId: dateRoomId });
 
@@ -303,12 +282,9 @@ app.put('/extend', async (req: any, res: any) => {
         res.json({ message: 'waiting for your partner' });
       }
     }
-  
-  console.log('---  /extend api ended ---');
 });
 
 async function pairingFunction(user: any, event_id: any, timer:any) {
-  console.log('----- pairing function started -----');
   const user_id = user.user_id;
   const interestedIn = user.interested;
   const interestedGenderArray = await WaitingRoom.find({event_id: event_id, gender: interestedIn, status: "active"});
@@ -391,15 +367,9 @@ async function pairingFunction(user: any, event_id: any, timer:any) {
         return token;
       }
 
-      console.log('----- socket emission -----');
-      console.log({...socketEmission, timer});
-
       // Emit match event to all users in the event room
       io.emit(`match_found:${socketEmission.pair[0]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(1), uid: 1, remoteUID: 1});
       io.emit(`match_found:${socketEmission.pair[1]}`, {...socketEmission, timer, dateRoomDocId: insertDateRoomData._id, agoraToken: generateToken(2), uid: 2, remoteUID: 2});
-   
-     
-      console.log('----- pairing function ended -----');
       return;
     }
   }

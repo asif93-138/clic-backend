@@ -13,6 +13,4 @@ export async function scheduleJob(jobName: string, timestamp: string | number | 
   }
 
   await agenda.schedule(runAt, jobName, data);
-
-  console.log(`Scheduled '${jobName}' to run at ${runAt.toISOString()} with data:`, data);
 }

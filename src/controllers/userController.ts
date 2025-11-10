@@ -97,7 +97,6 @@ export async function checkUsers(req: Request, res: Response): Promise<void> {
 
 export async function createUser(req: any, res: Response): Promise<void> {
     try {
-        // console.log(req.file); console.log(req.body);
         if (!req.file) {
             res.status(400).json({ message: 'No file uploaded' });
             return;
@@ -332,25 +331,18 @@ export async function updateUserApp(req: any, res: Response): Promise<void> {
 }
 
 // export async function updateUserApp(req: any, res: Response): Promise<void> {
-//     console.log("req.user :", req.user);
-//     console.log("req.file :", req.file);
-//     console.log("req.body :", req.body);
 //     try {
 //         if (req.file) {
 //             // const userData = await User.findById(req.user, "imgURL cloud_imgURL");
-//             // console.log("userData :", userData);
 
 //             const dataObj:any = {};
 //             dataObj.imgURL = "uploads/" + req.file.filename;
 //             dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-//             console.log("dataObj :", dataObj);
 //             const result = await User.findByIdAndUpdate(req.user, dataObj);
 //             res.json(result);
 //         }
 //         else {
-//             console.log("req.body :", req.body);
 //             const result = await User.findByIdAndUpdate(req.user, req.body);
-//             console.log("result :", result);
 //             res.json(result);
 //         }
 //     } catch (error) {
@@ -406,13 +398,11 @@ export async function matchVerificationCode(req: Request, res: Response) {
 
 export async function pushNotificationUpdate(req: any, res: Response): Promise<void> {
     try {
-        console.log(req.user); console.log(req.body);
         const result = await User.findOneAndUpdate(
             {_id: req.user, expoPushToken: { $ne: req.body.expoPushToken }},
             { $set: { expoPushToken: req.body.expoPushToken } },
             { new: true}
         );
-        console.log(result);
         res.json(result);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
@@ -452,7 +442,6 @@ export async function getInvites(req: any, res: Response) {
 
 export async function getInvitesBanner(req: any, res: Response) {
     const invites = await invitations.countDocuments({user_id: req.user, status: "invited"});
-    console.log(invites, typeof invites);
     res.json(invites);
 }
 
