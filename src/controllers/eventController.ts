@@ -566,6 +566,7 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
       { $set: dataObj_2 }
     );
     if (eventUserResult.acknowledged) {
+      await notification.updateMany({type: "rsvp", "data.event_id": dataObj_1.event_id}, {read: true});
       res.json({ message: "Successfully approved user!" });
     } else {
       res.status(400).json({ message: "failed!" });
@@ -582,6 +583,7 @@ export async function rejectEventUser(req: Request, res: Response): Promise<void
       event_id: req.body.event_id
     });
     if (eventUserResult.acknowledged) {
+      await invitations.deleteOne({event_id: req.body.event_id, user_id: req.body.user_id})
       res.json({ message: "Successfully removed user!" });
     } else {
       res.status(400).json({ message: "failed!" });

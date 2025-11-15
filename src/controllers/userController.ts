@@ -287,6 +287,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
                 "Congratulations! You're a member of Clic Club. You can now sign up to any of our scheduled online events, called Pools, to meet a selection of our members. Have fun!"
             ); 
         }
+        await notification.updateMany({type: "signup", "data._id": req.params.id}, {read: true});
         res.json(result);
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
