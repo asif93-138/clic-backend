@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
 
-describe("Database connection", () => {
-  it("should be connected", () => {
-    // 1 = connected
-    expect(mongoose.connection.readyState).toBe(1);
-  });
+describe("Database online test", () => {
+    it("should match the database name (clicDB)", async () => {
+    expect(mongoose.connection.db?.databaseName).toBe("clicDB");
+});
 });

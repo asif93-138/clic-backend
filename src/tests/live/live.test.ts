@@ -1,17 +1,18 @@
-// import { createBulkUsers } from "./createUsers/";
+
 // import { createEvent } from "./createEvent/";
 // import { rsvpPairs } from "./rsvpUsers/";
 // import { setEventTimeNow } from "./setEventTime/";
 // import { joinLive } from "./joinLive/";
-// import { memoryStore } from "./memoryStore/";
+import createBulkUsers from "./createUsers";
+import { memoryStore } from "./memoryStore/memoryStore";
 
-// describe("Live Feature Workflow", () => {
+describe("Live Feature Workflow", () => {
 
-//   // Step 1: Create users
-//   it("should create N users (half male, half female)", async () => {
-//     await createBulkUsers(10); // creates users and stores in memory
-//     console.log("Users created:", memoryStore.users.length);
-//   });
+  // Step 1: Create users
+  it("should create N users (male and female)", async () => {
+    await createBulkUsers(1, 1); // creates users and stores in memory
+    console.log("Users created:", Object.keys(memoryStore.users));
+  });
 
 //   // Step 2: Create a new event
 //   it("should create a new event", async () => {
@@ -40,4 +41,4 @@
 //     console.log("Pairs created:", memoryStore.pairs.length);
 //   });
 
-// });
+});
