@@ -7,6 +7,7 @@ import User from "../models/user.model";
 import Event from "../models/event";
 import EventUser from "../models/eventUser";
 import { generateToken } from "../utils/jwt";
+import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
 const maleCount = 15;
@@ -19,6 +20,8 @@ type UserType = {
   token: string;
   gender: "M" | "F";
   completedMatches: string[];
+  waitingTimes: number[]; // ms for each wait in the waiting room
+  waitingStart?: number; // timestamp when user joins waiting room
 };
 
 type Users = { [_id: string]: UserType };
@@ -107,17 +110,26 @@ function clearConsole() {
   process.stdout.write("\x1B[2J\x1B[0f");
 }
 
-function displayMemory(outsideEventSet: Set<string>) {
+function displayMemory(
+  outsideEventSet: Set<string>,
+  users: Users,
+  eventStart?: number
+) {
   if (!outsideEventSet) outsideEventSet = new Set();
 
   clearConsole();
   const separator = chalk.blue.bold(" | ");
 
-  // Users in event = total users minus outsideEvent
-  const insideUsers = Object.keys(memoryStore.users).filter(
-    (uid) => !outsideEventSet.has(uid)
-  );
-  console.log(chalk.green.bold(`Users in Event (${insideUsers.length})`));
+//   // Users currently in event (waiting room + dating rooms)
+//   const insideUsers = Object.keys(users).filter(
+//     (uid) =>
+//       !outsideEventSet.has(uid) &&
+//       (memoryStore.waitingRoom[uid] ||
+//         Object.values(memoryStore.datingRooms).some((r) =>
+//           r.users.some((u) => u.username === users[uid].username)
+//         ))
+//   );
+//   console.log(chalk.green.bold(`Users in Event (${insideUsers.length})`));
 
   // Waiting Room
   const waitingUsers = Object.values(memoryStore.waitingRoom);
@@ -143,14 +155,10 @@ function displayMemory(outsideEventSet: Set<string>) {
 
   // Call History
   const callHistoryLine = memoryStore.callHistory
-    .map((c) => {
-      // remove extra spaces in usernames
-      const u1 = c.user1.replace(/\s+/g, "");
-      const u2 = c.user2.replace(/\s+/g, "");
-      return `${u1} & ${u2}`;
-    })
+    .map(
+      (c) => `${c.user1.replace(/\s+/g, "")} & ${c.user2.replace(/\s+/g, "")}`
+    )
     .join(", ");
-
   console.log(
     chalk.cyan(
       `Call History (${memoryStore.callHistory.length}): ${
@@ -161,7 +169,7 @@ function displayMemory(outsideEventSet: Set<string>) {
 
   // Outside Event
   const outsideUsers = Array.from(outsideEventSet).map(
-    (uid) => memoryStore.users[uid]?.username
+    (uid) => users[uid]?.username
   );
   console.log(
     chalk.red(
@@ -170,6 +178,46 @@ function displayMemory(outsideEventSet: Set<string>) {
       }`
     )
   );
+
+  // Event duration and average waits
+  if (eventStart) {
+    const eventNow = performance.now();
+    const totalDuration = ((eventNow - eventStart) / 1000).toFixed(2);
+
+    // Aggregate all waiting times
+    const allWaits = Object.values(users)
+      .flatMap((u) => u.waitingTimes || [])
+      .filter((t) => t > 0); // ignore 0s
+    const maleWaits = Object.values(users)
+      .filter((u) => u.gender === "M")
+      .flatMap((u) => u.waitingTimes || [])
+      .filter((t) => t > 0);
+    const femaleWaits = Object.values(users)
+      .filter((u) => u.gender === "F")
+      .flatMap((u) => u.waitingTimes || [])
+      .filter((t) => t > 0);
+
+    const avgWaitAll = (
+      allWaits.reduce((a, b) => a + b, 0) /
+      (allWaits.length || 1) /
+      1000
+    ).toFixed(2);
+    const avgWaitM = (
+      maleWaits.reduce((a, b) => a + b, 0) /
+      (maleWaits.length || 1) /
+      1000
+    ).toFixed(2);
+    const avgWaitF = (
+      femaleWaits.reduce((a, b) => a + b, 0) /
+      (femaleWaits.length || 1) /
+      1000
+    ).toFixed(2);
+
+    console.log(`⏱ Total event duration: ${totalDuration}s`);
+    console.log(`Average wait all users: ${avgWaitAll}s`);
+    console.log(`Average wait males: ${avgWaitM}s`);
+    console.log(`Average wait females: ${avgWaitF}s`);
+  }
 
   console.log(chalk.blue.bold("=".repeat(80))); // bottom separator
 }
@@ -217,6 +265,7 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       username: userObj.userName,
       token: generateToken({ id: result._id.toString() }),
       gender: "M",
+      waitingTimes: [],
     });
   }
 
@@ -243,6 +292,7 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       username: userObj.userName,
       token: generateToken({ id: result._id.toString() }),
       gender: "F",
+      waitingTimes: [],
     });
   }
 
@@ -284,6 +334,7 @@ async function rsvpPairs() {
 
 /** ------------------- Live Simulation ------------------- */
 export default async function joinLive() {
+  const eventStart = performance.now();
   const users = memoryStore.users;
   const userIds = Object.keys(users);
   const BASE = "http://localhost:5006"; // socket server
@@ -315,6 +366,14 @@ export default async function joinLive() {
     // Handle match found
     socket.on(`match_found:${userId}`, async (matchData: any) => {
       if (inDatingRoom[userId]) return;
+
+      // Calculate waiting time
+      const now = performance.now();
+      if (users[userId].waitingStart) {
+        const waitDuration = now - users[userId].waitingStart;
+        users[userId].waitingTimes.push(waitDuration);
+        users[userId].waitingStart = undefined; // reset
+      }
 
       memoryStore.removeFromWaitingRoom(userId);
 
@@ -384,7 +443,10 @@ export default async function joinLive() {
   }
 
   // CLI display
-  const displayInterval = setInterval(() => displayMemory(outsideEvent), 500);
+  const displayInterval = setInterval(
+    () => displayMemory(outsideEvent, users, eventStart),
+    500
+  );
 
   // Main simulation loop
   while (
@@ -444,6 +506,9 @@ export default async function joinLive() {
             }),
           });
           memoryStore.addToWaitingRoom(uid);
+
+          // Start waiting timer
+          users[uid].waitingStart = performance.now();
         } catch (err) {
           console.error("Failed to join waiting room:", err);
         }
@@ -453,7 +518,11 @@ export default async function joinLive() {
   }
 
   clearInterval(displayInterval);
-  displayMemory(outsideEvent);
+  const eventEnd = performance.now();
+  const totalDuration = ((eventEnd - eventStart) / 1000).toFixed(2); // seconds
+  console.log(chalk.green.bold(`⏱ Total event duration: ${totalDuration}s`));
+
+  displayMemory(outsideEvent, users, eventStart);
   console.log(chalk.green.bold("🎉 Live simulation complete!"));
 }
 
