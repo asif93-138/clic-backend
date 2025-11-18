@@ -1,5 +1,5 @@
 
-// import { createEvent } from "./createEvent/";
+import createEvent from "./createEvent";
 // import { rsvpPairs } from "./rsvpUsers/";
 // import { setEventTimeNow } from "./setEventTime/";
 // import { joinLive } from "./joinLive/";
@@ -11,14 +11,14 @@ describe("Live Feature Workflow", () => {
   // Step 1: Create users
   it("should create N users (male and female)", async () => {
     await createBulkUsers(1, 1); // creates users and stores in memory
-    console.log("Users created:", Object.keys(memoryStore.users));
+    console.log("Users created:", Object.keys(memoryStore.users).length);
   });
 
-//   // Step 2: Create a new event
-//   it("should create a new event", async () => {
-//     memoryStore.event = await createEvent("Test Event");
-//     console.log("Event created:", memoryStore.event._id);
-//   });
+  // Step 2: Create a new event
+  it("should create a new event", async () => {
+    await createEvent("Test Event");
+    console.log("Event created:", memoryStore.event.eventId);
+  });
 
 //   // Step 3: RSVP pairs
 //   it("should RSVP and accept", async () => {

@@ -23,13 +23,13 @@ type DatingRoom = {
 type Event = {
   eventId: string;
   title: string;
-  startTime: Date;
+  startTime: string;
 };
 
 // Centralized in-memory store for the live workflow
 class MemoryStore {
   users: Users = {};
-  event: Event = { eventId: "", title: "", startTime: new Date(0) };
+  event: Event = { eventId: "", title: "", startTime: "" };
   waitingRoom: WaitingRoom = {};
   datingRooms: DatingRoom = {};
 
@@ -75,7 +75,7 @@ class MemoryStore {
   /** Reset all data */
   reset() {
     this.users = {};
-    this.event = { eventId: "", title: "", startTime: new Date(0) };
+    this.event = { eventId: "", title: "", startTime: "" };
     this.waitingRoom = {};
     this.datingRooms = {};
   }

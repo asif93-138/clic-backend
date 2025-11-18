@@ -51,9 +51,6 @@ export default async function createBulkUsers(maleCount: number, femaleCount: nu
 
     }
 
-
-
     const expectedCount = await User.countDocuments({});
     expect(maleCount+femaleCount).toBe(expectedCount);
-    // result.forEach(x => console.log(x._id));
 }
