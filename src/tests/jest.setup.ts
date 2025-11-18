@@ -5,8 +5,8 @@ import connectDB from "../config/dbConfig";
 beforeAll(async () => {
   console.log("SETUP: Connecting MongoDB...");
   await connectDB();
-  // await mongoose.connection.dropDatabase();
-  // console.log("Database dropped successfully");
+  await mongoose.connection.dropDatabase();
+  console.log("Database dropped successfully");
 });
 
 afterAll(async () => {

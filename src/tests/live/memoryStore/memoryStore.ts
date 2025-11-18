@@ -14,7 +14,8 @@ type WaitingRoom = {
 };
 
 type DatingRoom = {
-  [dateRoomId: string]: {
+  [pair: string]: {
+    dateRoomId:string;
     users: User[];
     startedAt?: Date;
   };
@@ -64,8 +65,8 @@ class MemoryStore {
   }
 
   /** Dating room operations */
-  addToDatingRoom(roomId: string, room: { users: User[]; startedAt?: Date }) {
-    this.datingRooms[roomId] = room;
+  addToDatingRoom(pair: string, room: { users: User[]; startedAt?: Date, dateRoomId:string }) {
+    this.datingRooms[pair] = room;
   }
 
   removeFromDatingRoom(roomId: string) {
