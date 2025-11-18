@@ -1,75 +1,144 @@
-// import { memoryStore } from "../memoryStore/";
-// import { io, Socket } from "socket.io-client";
 
-// const TOTAL_MATCHES_PER_USER = memoryStore.users.length; // each user should meet everyone else
+import { io, Socket } from "socket.io-client";
+import { memoryStore } from "../memoryStore/memoryStore";
+import displayMemory from "./displayMemory";
+const BASE = "http://localhost:5006"; // your server URL
+const displayInterval = setInterval(displayMemory, 500);
 
-// export const joinLive = async () => {
-//   const users = memoryStore.users;
+function wait(ms: number) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
-//   // Create socket instances per user
-//   const sockets: Socket[] = users.map(u =>
-//     io("http://localhost:5000", { query: { userId: u._id } })
-//   );
+function makePairKey(u1: string, u2: string) {
+  return [u1, u2].sort().join("-");
+}
 
-//   // Helper: display live status
-//   const displayStatus = () => {
-//     process.stdout.write("\x1Bc"); // clear console
-//     console.log("=== Live Matchmaking Status ===");
-//     users.forEach(u => {
-//       const completed = u.completedMatches?.length || 0;
-//       console.log(`${u._id} | ${u.currentRoom || "idle"} | Matches: ${completed}`);
-//     });
-//   };
+export default async function joinLive(goalPerUser: number = 30) {
+  const users = memoryStore.users;
+  const userIds = Object.keys(users);
 
-//   // Per-user async loop
-//   const userLoop = async (user: any, socket: Socket) => {
-//     while ((user.completedMatches?.length || 0) < TOTAL_MATCHES_PER_USER) {
-//       // Step 1: Join waiting room
-//       user.currentRoom = "waiting";
-//       socket.emit("join_waiting_room", { userId: user._id });
-//       displayStatus();
+  console.log("Starting live test for", userIds.length, "users");
 
-//       // Step 2: Wait for match
-//       const matchedUser: any = await new Promise(res => {
-//         const handler = (data: any) => {
-//           if (data.userId === user._id) {
-//             socket.off("match_found_userid", handler);
-//             res(data);
-//           }
-//         };
-//         socket.on("match_found_userid", handler);
-//       });
+  // Create socket connections for all users once
+  const sockets: Record<string, Socket> = {};
+  for (const userId of userIds) {
+    const user = users[userId];
+    const socket = io(BASE, {
+      query: {
+        event_id: memoryStore.event.eventId,
+        user_id: userId,
+        gender: user.gender,
+        interested: user.gender === "M" ? "F" : "M",
+      },
+      transports: ["websocket"],
+    });
+    sockets[userId] = socket;
+  }
 
-//       // Step 3: Enter dating room
-//       const dateroomId = matchedUser.dateroomId;
-//       user.currentRoom = "dating";
-//       user.completedMatches = user.completedMatches || [];
-//       user.completedMatches.push(matchedUser.matchedUserId);
-//       displayStatus();
+  // Start CLI display loop
+  const displayInterval = setInterval(displayMemory, 500);
 
-//       // Listen for dateroom events (call ended)
-//       await new Promise(res => {
-//         const callHandler = (data: any) => {
-//           if (data.type === "call_ended" && data.dateroomId === dateroomId) {
-//             socket.off(`dateroom:${dateroomId}`, callHandler);
-//             res(null);
-//           }
-//         };
-//         socket.on(`dateroom:${dateroomId}`, callHandler);
-//       });
+  // Start all user loops in parallel
+  await Promise.all(
+    userIds.map((uid) => userLoop(uid, users[uid], sockets[uid], goalPerUser))
+  );
 
-//       // Step 4: Leave dating room, go back to waiting
-//       user.currentRoom = null;
-//       displayStatus();
-//       await new Promise(res => setTimeout(res, 500)); // small delay before rejoining
-//     }
+  clearInterval(displayInterval); // stop display when done
+  displayMemory(); // final display
+  console.log("🎉 All users reached their goal!");
+}
 
-//     // Loop finished for this user
-//     socket.disconnect();
-//   };
+async function userLoop(
+  userId: string,
+  user: any,
+  socket: Socket,
+  goal: number
+) {
+  let inWaitingRoom = false;
+  let inDatingRoom = false;
+  let leaveTimeout: NodeJS.Timeout | null = null;
 
-//   // Start all user loops in parallel
-//   await Promise.all(users.map((u, idx) => userLoop(u, sockets[idx])));
+  // Listen for match events
+  socket.on(`match_found:${userId}`, async (matchData: any) => {
+    if (inDatingRoom) return;
 
-//   console.log("✅ All users finished live scenario.");
-// };
+    inWaitingRoom = false;
+    inDatingRoom = true;
+    delete memoryStore.waitingRoom[userId];
+
+    const pairKey = makePairKey(matchData.pair[0], matchData.pair[1]);
+    if (!memoryStore.datingRooms[pairKey]) {
+      memoryStore.addToDatingRoom(pairKey, {
+        users: matchData.userData,
+        dateRoomId: matchData.dateRoomId,
+      });
+    }
+
+    const delay = Math.random() * 3000 + 1000;
+    leaveTimeout = setTimeout(async () => {
+      await fetch(`${BASE}/leaveDatingRoom`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: memoryStore.event.eventId,
+          user_id: userId,
+          left_early: false,
+        }),
+      });
+      leaveTimeout = null;
+    }, delay);
+  });
+
+  // Listen for has_left:* to cancel timeout and update memory
+  socket.on(`has_left:*`, (dateRoomId: string) => {
+    if (leaveTimeout) {
+      clearTimeout(leaveTimeout);
+      leaveTimeout = null;
+    }
+
+    for (const key in memoryStore.datingRooms) {
+      if (memoryStore.datingRooms[key].dateRoomId === dateRoomId) {
+        delete memoryStore.datingRooms[key];
+        break;
+      }
+    }
+    inDatingRoom = false;
+  });
+
+  while (user.completedMatches.length < goal) {
+    if (!inWaitingRoom && !inDatingRoom) {
+      await fetch(`${BASE}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: memoryStore.event.eventId,
+          user: {
+            user_id: userId,
+            gender: user.gender,
+            interested: user.gender === "M" ? "F" : "M",
+          },
+          rejoin: false,
+        }),
+      });
+      inWaitingRoom = true;
+      memoryStore.waitingRoom[userId] = user;
+    }
+
+    await wait(100);
+  }
+
+  await fetch(`${BASE}/leave_event`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event_id: memoryStore.event.eventId,
+      user: {
+        user_id: userId,
+        gender: user.gender,
+        interested: user.interested,
+      },
+    }),
+  });
+
+  console.log(`User ${userId} completed goal and left event.`);
+}
