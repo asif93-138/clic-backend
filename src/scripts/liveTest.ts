@@ -10,9 +10,11 @@ import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 15;
-const femaleCount = 15;
-const leaveDelay = { min: 3000, random: 4000 }; // ms
+const maleCount = 10;
+const femaleCount = 20;
+const leaveDelay = { min: 1000, random: 2500 }; // ms
+// npx ts-node src/scripts/liveTest.ts
+// run server npm run dev
 
 /** ------------------- Memory Store ------------------- */
 type UserType = {
@@ -120,16 +122,20 @@ function displayMemory(
   clearConsole();
   const separator = chalk.blue.bold(" | ");
 
-//   // Users currently in event (waiting room + dating rooms)
-//   const insideUsers = Object.keys(users).filter(
-//     (uid) =>
-//       !outsideEventSet.has(uid) &&
-//       (memoryStore.waitingRoom[uid] ||
-//         Object.values(memoryStore.datingRooms).some((r) =>
-//           r.users.some((u) => u.username === users[uid].username)
-//         ))
-//   );
-//   console.log(chalk.green.bold(`Users in Event (${insideUsers.length})`));
+  //   // Users currently in event (waiting room + dating rooms)
+  //   const insideUsers = Object.keys(users).filter(
+  //     (uid) =>
+  //       !outsideEventSet.has(uid) &&
+  //       (memoryStore.waitingRoom[uid] ||
+  //         Object.values(memoryStore.datingRooms).some((r) =>
+  //           r.users.some((u) => u.username === users[uid].username)
+  //         ))
+  //   );
+  console.log(
+    chalk.green.bold(
+      `Users Participating Event (${Object.keys(memoryStore.users).length})`
+    )
+  );
 
   // Waiting Room
   const waitingUsers = Object.values(memoryStore.waitingRoom);
@@ -445,7 +451,7 @@ export default async function joinLive() {
   // CLI display
   const displayInterval = setInterval(
     () => displayMemory(outsideEvent, users, eventStart),
-    500
+    50
   );
 
   // Main simulation loop
@@ -514,10 +520,22 @@ export default async function joinLive() {
         }
       }
     }
-    await wait(200);
+    await new Promise((resolve) => setImmediate(resolve));
   }
 
-  clearInterval(displayInterval);
+  // Wait for all users to finish leaving dating rooms
+  async function waitForAllLeaves(
+    leaveTimeouts: Record<string, NodeJS.Timeout | null>
+  ) {
+    while (Object.values(leaveTimeouts).some((t) => t !== null)) {
+      await wait(50); // small delay to allow timers to fire
+    }
+  }
+
+  // Main simulation end
+  await waitForAllLeaves(leaveTimeouts); // <-- display keeps running
+  clearInterval(displayInterval); // stop updating
+
   const eventEnd = performance.now();
   const totalDuration = ((eventEnd - eventStart) / 1000).toFixed(2); // seconds
   console.log(chalk.green.bold(`⏱ Total event duration: ${totalDuration}s`));

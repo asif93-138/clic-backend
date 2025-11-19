@@ -404,23 +404,27 @@ app.put("/extend", async (req: any, res: any) => {
 });
 
 async function pairingFunction(user: any, event_id: any, timer: any) {
+  // fetch potential matches
   const user_id = user.user_id;
   const interestedIn = user.interested;
   const interestedGenderArray = await WaitingRoom.find({
     event_id: event_id,
     gender: interestedIn,
     status: "active",
-  });
+  }); // type of x
 
+  // early return if potential matches empty
   if (!interestedGenderArray || interestedGenderArray.length === 0) return;
 
+  // iterate over each potental match to find match
   for (let i = 0; i < interestedGenderArray.length; i++) {
     const selectedUser = interestedGenderArray[i];
-
+    // see if the user we are matching with is me, early return
     if (selectedUser.user_id === user_id) continue;
 
     const userIdArray = [user_id, selectedUser.user_id].sort();
 
+    // check if we already spoke
     const call_history = await CallHistory.find({
       event_id: event_id,
       person_1: userIdArray[0],
@@ -434,9 +438,12 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
       continue;
     }
 
+    // check match found
     if (selectedUser.interested === user.gender) {
-      const dateRoomId = Math.random().toString(36).substring(2, 12);
+      // seperate if check condition in helper func
+      const dateRoomId = Math.random().toString(36).substring(2, 12); // dateroomID generator in seperate service
 
+      // fetch matched user's profile pic + username (consider service)
       const queryData_1 = await User.findById(user.user_id, "userName imgURL");
       const queryData_2 = await User.findById(
         selectedUser.user_id,
@@ -467,6 +474,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
       // const deletePersonOne = await WaitingRoom.deleteOne({ user_id: userIdArray[0], event_id: event_id });
       // const deletePersonTwo = await WaitingRoom.deleteOne({ user_id: userIdArray[1], event_id: event_id });
 
+      // Move from waiting room -> Dating Room (move to db layer)
       const deletePersonOne = await WaitingRoom.findOneAndUpdate(
         { event_id: event_id, user_id: userIdArray[0] },
         { status: "inactive" }
@@ -476,14 +484,15 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         { status: "inactive" }
       );
 
+      // Push to dateroom (move to db layer)
       const dateRoomData = {
         event_id: event_id,
         ...socketEmission,
         extension: [],
       };
-
       const insertDateRoomData = await DatingRoom.create(dateRoomData);
 
+      // Push to call history (move to db layer)
       const callHistoryData = {
         event_id: event_id,
         dateRoomDocId: insertDateRoomData._id,
@@ -493,6 +502,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
       };
       const insertCHData = await CallHistory.create(callHistoryData);
 
+      // agora authentication + setup
       const channelName = dateRoomId;
 
       const role = RtcRole.PUBLISHER; // or the corresponding constant in your library
@@ -516,7 +526,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         return token;
       }
 
-      // Emit match event to all users in the event room
+      // Emit match event to all users in the event room 
       io.emit(`match_found:${socketEmission.pair[0]}`, {
         ...socketEmission,
         timer,
