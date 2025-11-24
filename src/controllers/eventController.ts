@@ -17,6 +17,7 @@ import invitations from '../models/invitations';
 import cloudinary from '../utils/cloudinary';
 import { ObjectId } from 'mongodb';
 import mongoose from "mongoose";
+import InterestedMatch from '../models/interestedMatch';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -681,48 +682,38 @@ export async function homePageData(req: any, res: Response) {
 }
 
 export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: string) {
-  // 0) Convert the incoming user_id (string) into an ObjectId
   const requestingObjectId = new Types.ObjectId(user_id);
 
-  // 1) Look up gender of the requesting user, so we know the “opposite” gender
+  // 1) Find requesting user's gender
   const requestingUser = await User.findById(requestingObjectId)
     .select("gender")
     .lean();
-  if (!requestingUser) {
-    throw new Error("Requesting user not found.");
-  }
+
+  if (!requestingUser) throw new Error("Requesting user not found.");
+
   const oppositeGender =
     requestingUser.gender.toLowerCase() === "male" ? "Female" : "Male";
 
-  // 2) Gather all event_ids (strings) that this user has already joined
-  //    (EventUser.event_id is stored as a string in our schema)
-  const joinedDocs = await eventUser.find({ user_id: user_id })
-    .select("event_id")
-    .lean();
-  const joinedEventIds: string[] = joinedDocs.map((doc) => doc.event_id);
+  // 2) Get events the user already joined
+  const joinedDocs = await eventUser.find({ user_id }).select("event_id").lean();
+  const joinedEventIds = joinedDocs.map((d) => d.event_id);
 
-  // 3) Prepare “now” for comparison (string form is fine, but we’ll use it in a Date literal below)
-  const nowDate = new Date(); // current UTC time
+  const nowDate = new Date();
 
-  // 4) Build the aggregation pipeline on EventUser
-  const result = await eventUser.aggregate([
-    // ─── Stage 1 ───
+  // 3) AGGREGATION: get all future events with opposite-gender members
+  const events = await eventUser.aggregate([
     {
       $match: {
         status: "approved",
         event_id: { $nin: joinedEventIds },
       },
     },
-
-    // ─── Stage 2 ───
     {
       $addFields: {
         userObjectId: { $toObjectId: "$user_id" },
         eventObjectId: { $toObjectId: "$event_id" },
       },
     },
-
-    // ─── Stage 3 ───
     {
       $lookup: {
         from: "users",
@@ -732,15 +723,11 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
       },
     },
     { $unwind: "$user" },
-
-    // ─── Stage 4 ───
     {
       $match: {
         "user.gender": oppositeGender,
       },
     },
-
-    // ─── Stage 5 ───
     {
       $lookup: {
         from: "events",
@@ -750,8 +737,6 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
       },
     },
     { $unwind: "$event" },
-
-    // ─── Stage 6 ───
     {
       $match: {
         $expr: {
@@ -767,27 +752,15 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
         },
       },
     },
-
-    // ─── Stage 7 ───
-    // Group by event and collect members array
     {
       $group: {
         _id: "$event._id",
         title: { $first: "$event.title" },
         date_time: { $first: "$event.date_time" },
         event_status: { $first: "$event.event_status" },
-        members: {
-          $push: {
-            userName: "$user.userName",
-            imgURL: "$user.imgURL",
-            gender: "$user.gender",
-          },
-        },
+        members: { $push: "$user_id" }, // ONLY userIDs
       },
     },
-
-    // ─── Stage 8 ───
-    // Project final shape
     {
       $project: {
         _id: 0,
@@ -798,12 +771,42 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
         members: 1,
       },
     },
-
-    // Optional: sort by date_time ascending
     { $sort: { date_time: 1 } },
   ]);
-  console.log(result);
-  return result;
+
+  // 4) Collect all unique user_ids from all events
+  const uniqueUserIds = [
+    ...new Set(events.flatMap((event) => event.members)),
+  ];
+
+  // 5) Fetch those users
+  const peopleData = await User.find({ _id: { $in: uniqueUserIds } })
+    .select("userName imgURL gender")
+    .lean();
+
+  // 6) Add interest field
+  const people = await Promise.all(
+    peopleData.map(async (p: any) => {
+      const likedCheck = await InterestedMatch.findOne({
+        liked: p._id.toString(),
+        likedBy: user_id,
+      });
+
+      return {
+        userID: p._id.toString(),
+        userName: p.userName,
+        imgURL: p.imgURL,
+        gender: p.gender,
+        interest: !!likedCheck, // true if found
+      };
+    })
+  );
+
+  // 7) final output
+  return {
+    card: events,
+    people,
+  };
 }
 
 // export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: string) {

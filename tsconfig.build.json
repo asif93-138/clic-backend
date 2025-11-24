@@ -4,7 +4,9 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "./dist",
-    "isolatedModules": false
+    "isolatedModules": false,
+    "types": ["jest", "node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/tests/**/*"]
 }
