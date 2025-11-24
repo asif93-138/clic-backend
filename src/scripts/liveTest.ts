@@ -10,8 +10,8 @@ import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 10;
-const femaleCount = 20;
+const maleCount = 2;
+const femaleCount = 2;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
 // npx ts-node src/scripts/liveTest.ts
 // run server npm run dev
@@ -343,7 +343,7 @@ export default async function joinLive() {
   const eventStart = performance.now();
   const users = memoryStore.users;
   const userIds = Object.keys(users);
-  const BASE = "http://localhost:5006"; // socket server
+  const BASE = "http://localhost:5000"; // socket server
 
   console.log("Starting live simulation for", userIds.length, "users");
 

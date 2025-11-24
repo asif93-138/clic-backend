@@ -9,6 +9,7 @@ import {
   getUserApproved, getUserPP, getUserProfile, sendEmailC, pushNotificationUpdate,
   pushNotificationTest, emailVerificationC, matchVerificationCode, updateUser,
   getUserData, searchUser, updateUserApp, getInvites, updateInvite, getInvitesBanner,
+  interestedMatchC,
 } from "./controllers/userController";
 import { userLogin } from "./controllers/loginController";
 import {
@@ -111,6 +112,7 @@ app.post("/notification-register", authMiddleware, pushNotificationUpdate);
 app.post("/submitFeedback", collectFeedback);
 app.post("/mark-notification-read/:id", authMiddleware, readNotification);
 app.post("/invite", authMiddleware, registerInvites);
+app.post("/interested", authMiddleware, interestedMatchC);
 
 app.post("/join", eventJoining);
 

@@ -12,6 +12,7 @@ import invitations from '../models/invitations';
 import eventUser from '../models/eventUser';
 import EventCancellation from '../models/eventCancellation';
 import path from 'path';
+import InterestedMatch from '../models/interestedMatch';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -476,3 +477,28 @@ export async function updateInvite(req: any, res: Response) {
         console.log("Error in updating invitation:", error);
     }
 }
+
+export async function interestedMatchC(req: any, res: Response) {
+    const data = { liked: req.body.user_id, likedBy: req.user };
+    const searchResult = await InterestedMatch.findOne(data);
+    if (searchResult) {
+        const deleted = await InterestedMatch.deleteOne(data);
+        if (deleted.acknowledged) res.json({ message: "done" });
+        else res.status(501).json({ message: "failed" });
+    }
+    else {
+        const insertedData = await InterestedMatch.create(data);
+        if (insertedData._id) res.json({ message: "done" });
+        else res.status(501).json({ message: "failed" });
+    }
+}
+
+// (async function() {
+//     const data = {liked: "691f20592d4a702f98e8de88", likedBy: "691f20592d4a702f98e8de83"};
+//     // const searchResult = await InterestedMatch.findOne(data);
+//     // console.log(searchResult);
+//     // const insertedData = await InterestedMatch.create(data);
+//     // console.log(insertedData);
+//     // const deleted = await InterestedMatch.deleteOne(data);
+//     // console.log(deleted);
+// })();
