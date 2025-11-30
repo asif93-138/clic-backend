@@ -16,9 +16,7 @@ const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 async function liveMatches(data: any) {
   const { event_id, user_id, gender, interested, rejoin } = data;
   if (!rejoin) {
-    const historyArr: any[] = [],
-      historyObj = new Set(),
-      potentialMatches = [];
+    const potentialMatches = [];
 
     const interestedGenderArray = await WaitingRoom.find({
       event_id: event_id,
@@ -26,21 +24,8 @@ async function liveMatches(data: any) {
       in_event: true,
     });
 
-    const call_historyArr = await CallHistory.find({ event_id: event_id });
-
-    for (const history of call_historyArr) {
-      if (history.person_1 == user_id) {
-        historyArr.push(history.person_2);
-        historyObj.add(history.person_2);
-      }
-      if (history.person_2 == user_id) {
-        historyArr.push(history.person_1);
-        historyObj.add(history.person_1);
-      }
-    }
-
     for (const user of interestedGenderArray) {
-      if (!historyObj.has(user.user_id)) {
+      if (!user.call_history.includes(user_id)) { 
         const userData = await User.findById(user.user_id, "userName imgURL");
         potentialMatches.push(userData);
       }
@@ -49,7 +34,7 @@ async function liveMatches(data: any) {
 
     io.emit(`${event_id}-${gender}-potential-matches`, userData);
 
-    return { historyArr, potentialMatches };
+    return { potentialMatches };
   }
 }
 
@@ -59,7 +44,7 @@ function hasTimePassedPlusHours(datetimeStr: string, duration: number) {
 
   // Add hours
   const futureDate = new Date(
-    originalDate.getTime() + duration * 60 * 60 * 1000
+    originalDate.getTime() + duration * 60 * 1000
   );
 
   // Get current UTC time
@@ -90,6 +75,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
     event_id: event_id,
     gender: interestedIn,
     status: "active",
+    in_event: true,
   }); // type of x
 
   // early return if potential matches empty
@@ -99,23 +85,25 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
   for (let i = 0; i < interestedGenderArray.length; i++) {
     const selectedUser = interestedGenderArray[i];
     // see if the user we are matching with is me, early return
-    if (selectedUser.user_id === user_id) continue;
+    // if (selectedUser.user_id === user_id) continue;
 
     const userIdArray = [user_id, selectedUser.user_id].sort();
 
     // check if we already spoke
-    const call_history = await CallHistory.find({
-      event_id: event_id,
-      person_1: userIdArray[0],
-      person_2: userIdArray[1],
-    });
+    // const call_history = await CallHistory.find({
+    //   event_id: event_id,
+    //   person_1: userIdArray[0],
+    //   person_2: userIdArray[1],
+    // });
 
-    if (
-      call_history[0]?.person_1 == userIdArray[0] &&
-      call_history[0]?.person_2 == userIdArray[1]
-    ) {
-      continue;
-    }
+    // if (
+    //   call_history[0]?.person_1 == userIdArray[0] &&
+    //   call_history[0]?.person_2 == userIdArray[1]
+    // ) {
+    //   continue;
+    // }
+
+    if (selectedUser.call_history.includes(user_id)) continue;
 
     // check match found
     if (selectedUser.interested === user.gender) {
@@ -145,7 +133,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
       };
 
       const socketEmission = {
-        pair: [user_id, selectedUser.user_id].sort(),
+        pair: userIdArray,
         userData: [user_1, user_2],
         dateRoomId,
       };
@@ -156,11 +144,11 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
       // Move from waiting room -> Dating Room (move to db layer)
       const deletePersonOne = await WaitingRoom.findOneAndUpdate(
         { event_id: event_id, user_id: userIdArray[0] },
-        { status: "inactive" }
+        { status: "inactive", $push: { call_history: userIdArray[1] } }
       );
       const deletePersonTwo = await WaitingRoom.findOneAndUpdate(
         { event_id: event_id, user_id: userIdArray[1] },
-        { status: "inactive" }
+        { status: "inactive", $push: { call_history: userIdArray[0] } }
       );
 
       // Push to dateroom (move to db layer)
@@ -240,16 +228,22 @@ export async function eventJoining(req: any, res: any) {
   if (
     hasTimePassedPlusHours(
       eventTime + ":00Z",
-      eventData.event_durations[1] / 60
+      eventData.event_durations[1]
     ).hasPassed
   ) {
     res.status(410).json({ message: "event ended!" });
     return;
   }
+
+  if (!rejoin && hasTimePassedPlusHours(eventTime + ":00Z", eventData.event_durations[2]).hasPassed) {
+    res.status(410).json({ message: "gate closed!" });
+    return;
+  }
+
   let flag = false;
   const eventEndTime = hasTimePassedPlusHours(
     eventTime + ":00Z",
-    eventData.event_durations[1] / 60
+    eventData.event_durations[1]
   ).adjustedTime;
   const userObj = await WaitingRoom.find({
     event_id: event_id,
@@ -267,13 +261,14 @@ export async function eventJoining(req: any, res: any) {
         interested: user.interested,
         status: "active",
         in_event: true,
+        call_history: []
       };
       const insertedResult = await WaitingRoom.create(data);
       const liveMatchesObj = await liveMatches({ event_id, ...user, rejoin });
       res.send({
         user_id: user.user_id,
         event_time: eventEndTime,
-        callHistory: liveMatchesObj?.historyArr,
+        callHistory: [],
         potentialMatches: liveMatchesObj?.potentialMatches,
         extend_limit: eventData.extension_limit,
       });
@@ -292,7 +287,7 @@ export async function eventJoining(req: any, res: any) {
     res.send({
       user_id: user.user_id,
       event_time: eventEndTime,
-      callHistory: liveMatchesObj?.historyArr,
+      callHistory: rejoin ? undefined : userObj[0].call_history,
       potentialMatches: liveMatchesObj?.potentialMatches,
       extend_limit: eventData.extension_limit,
     });
@@ -422,3 +417,22 @@ export async function leaveDatingSessionC(req: Request, res: Response) {
     io.emit(`dating_session_left:${req.body.dateRoomId}`);
   }
 }
+
+// (async function() {
+      // const data = {
+      //   event_id: "69243fef4d8c79aa0f272ca4",
+      //   user_id: "69243fef4d8c79aa0f272ca0",
+      //   gender: "M",
+      //   interested: "F",
+      //   status: "active",
+      //   in_event: true,
+      //   call_history: ["69243fef4d8c79aa0f272ca0"]
+      // };
+      // const insertedResult = await WaitingRoom.create(data);
+      // console.log(await WaitingRoom.findOneAndUpdate(
+      //   {event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"},
+      //   { status: "inactive", $push: { call_history: "69243fef4d8c79aa0f272c9b" } }
+      // ));
+      // const result = await WaitingRoom.findOne({event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"});
+      // console.log(result?.call_history.includes('69243fef4d8c79aa0f272czz'));
+// })();

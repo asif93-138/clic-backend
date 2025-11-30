@@ -8,7 +8,7 @@ export interface IEvent extends Document {
     date_time: string;
     location: string;
     event_status: boolean;
-    event_durations: number[];
+    event_durations: number[]; // call duration in seconds, event duration in minutes, door closing in minutes
     extension_limit: number;
 }
 
