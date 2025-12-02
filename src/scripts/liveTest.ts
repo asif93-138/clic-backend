@@ -315,7 +315,9 @@ async function createEvent(title: string) {
     date_time: formatToYMDHM(new Date()),
     location: "Dhaka",
     event_status: false,
-    event_durations: [60, 180],
+    event_duration: 180,
+    call_duration: 180,
+    gate_closing: 30,
     extension_limit: 3,
   });
   memoryStore.event = {

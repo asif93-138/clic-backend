@@ -228,14 +228,14 @@ export async function eventJoining(req: any, res: any) {
   if (
     hasTimePassedPlusHours(
       eventTime + ":00Z",
-      eventData.event_durations[1]
+      eventData.event_duration
     ).hasPassed
   ) {
     res.status(410).json({ message: "event ended!" });
     return;
   }
 
-  if (!rejoin && hasTimePassedPlusHours(eventTime + ":00Z", eventData.event_durations[2]).hasPassed) {
+  if (!rejoin && hasTimePassedPlusHours(eventTime + ":00Z", eventData.gate_closing).hasPassed) {
     res.status(410).json({ message: "gate closed!" });
     return;
   }
@@ -243,7 +243,7 @@ export async function eventJoining(req: any, res: any) {
   let flag = false;
   const eventEndTime = hasTimePassedPlusHours(
     eventTime + ":00Z",
-    eventData.event_durations[1]
+    eventData.event_duration
   ).adjustedTime;
   const userObj = await WaitingRoom.find({
     event_id: event_id,
@@ -293,8 +293,7 @@ export async function eventJoining(req: any, res: any) {
     });
   }
   res.on("finish", () => {
-    if (eventData.event_durations)
-      pairingFunction(user, event_id, eventData.event_durations[0]);
+      pairingFunction(user, event_id, eventData.call_duration);
   });
 }
 

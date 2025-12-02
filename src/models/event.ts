@@ -8,7 +8,10 @@ export interface IEvent extends Document {
     date_time: string;
     location: string;
     event_status: boolean;
-    event_durations: number[]; // call duration in seconds, event duration in minutes, door closing in minutes
+    event_duration: number;
+    call_duration: number;
+    gate_closing: number;
+    // event_durations: number[]; // call duration in seconds, event duration in minutes, door closing in minutes
     extension_limit: number;
 }
 
@@ -21,7 +24,10 @@ const EventSchema: Schema = new Schema(
         date_time: { type: String, required: true },
         location: { type: String, required: true },
         event_status: { type: Boolean, required: true, default: false },
-        event_durations: { type: [Number], required: true },
+        event_duration: {type: Number, required: true},
+        call_duration: {type: Number, required: true},
+        gate_closing: {type: Number, required: true},
+        // event_durations: { type: [Number], required: true },
         extension_limit: { type: Number, required: true },
     },
     { timestamps: true }
