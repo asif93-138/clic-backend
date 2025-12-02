@@ -376,7 +376,7 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
         date_time: {
           $gte: new Date(new Date().setDate(new Date().getDate() - 200)).toISOString()
         }
-      }, 'title imgURL date_time event_durations').sort({ createdAt: -1 }).lean();
+      }, 'title imgURL date_time event_duration call_duration gate_closing').sort({ createdAt: -1 }).lean();
       const filteredArr: any[] = [];
       approvedResult.forEach((x: any) => {
         x.userStatus = "approved";
@@ -412,9 +412,12 @@ export async function createEvent(req: any, res: Response): Promise<void> {
     // http://localhost:5000/uploads/1747643112457-930576226.jpg
 
     const dataObj = req.body;
-    dataObj.event_durations = JSON.parse(dataObj.event_durations);
+    const time_arr = JSON.parse(dataObj.event_durations);
     dataObj.imgURL = "uploads/" + req.file.filename;
     dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+    dataObj.event_duration = time_arr[1];
+    dataObj.call_duration = time_arr[0];
+    dataObj.gate_closing = time_arr[2];
     dataObj.extension_limit = Number(dataObj.extension_limit);
     const insertResult = await Event.create(dataObj);
     createdEvent = insertResult;
@@ -614,14 +617,20 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
       const dataObj = req.body;
       dataObj.imgURL = "uploads/" + req.file.filename;
       dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-      dataObj.event_durations = JSON.parse(dataObj.event_durations);
+      const time_arr = JSON.parse(dataObj.event_durations);
+      dataObj.event_duration = time_arr[1];
+      dataObj.call_duration = time_arr[0];
+      dataObj.gate_closing = time_arr[2];
       dataObj.extension_limit = Number(dataObj.extension_limit);
       dataObj.event_status = dataObj.event_status == "true" ? true : false;
       const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
       res.json(result);
     } else {
       const dataObj = req.body;
-      dataObj.event_durations = JSON.parse(dataObj.event_durations);
+      const time_arr = JSON.parse(dataObj.event_durations);
+      dataObj.event_duration = time_arr[1];
+      dataObj.call_duration = time_arr[0];
+      dataObj.gate_closing = time_arr[2];
       dataObj.extension_limit = Number(dataObj.extension_limit);
       dataObj.event_status = dataObj.event_status == "true" ? true : false;
       const result = await Event.findByIdAndUpdate(req.params.id, dataObj);
