@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 
 
 export default async function initialController(req: Request, res: Response): Promise<void> {
-    // }
     try {
     
         const db = mongoose.connection.db;
