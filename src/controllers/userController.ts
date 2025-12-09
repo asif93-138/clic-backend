@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../utils/jwt';
 import User from '../models/user.model';
@@ -7,12 +6,12 @@ import { sendEmail } from '../utils/sendEmail';
 import sendPushNotificationNow from '../utils/sendPushNotificationNow';
 import verificationCode from '../models/verificationCode';
 import notification from '../models/notification';
-import cloudinary from '../utils/cloudinary';
 import invitations from '../models/invitations';
 import eventUser from '../models/eventUser';
 import EventCancellation from '../models/eventCancellation';
-import path from 'path';
 import InterestedMatch from '../models/interestedMatch';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { s3 } from '../middleware/spaces';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -104,8 +103,7 @@ export async function createUser(req: any, res: Response): Promise<void> {
         }
         // res.send("OK");
         const dataObj = req.body;
-        dataObj.imgURL = "uploads/" + req.file.filename;
-        dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+        dataObj.imgURL = req.file.cdnUrl;
         const hashedPassword = await bcrypt.hash(dataObj.password, 10);
         dataObj.password = hashedPassword;
         const newUser = new User(dataObj);
@@ -132,12 +130,12 @@ await sendEmail(
             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">New Member Registration</h1>
             <p style="color: #f0f0f0; margin: 10px 0 0 0; font-size: 14px;">A new member has joined the community</p>
         </div>
-        
+       
        
         <div style="padding: 40px 30px; background-color: #ffffff;">
              
             <div style="text-align: center; margin-bottom: 30px;">
-                <img src="https://involved-rosemaria-project-code-clic-b3374d4e.koyeb.app/uploads/${req.file.filename}" 
+                <img src="https://twoclicclub.ams3.cdn.digitaloceanspaces.com/${req.file.cdnUrl}" 
                      width="120" 
                      style="border-radius: 5%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
                      alt="Profile" />
@@ -298,28 +296,16 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 export async function updateUserApp(req: any, res: Response): Promise<void> {
     try {
         if (req.file) {
-            const userData = await User.findById(req.user, "imgURL cloud_imgURL");
 
-            // Delete previous file from local storage (wrapped in try/catch)
-            if (userData?.imgURL) {
-                try {
-                    const oldPath = path.join(req.file.destination, userData.imgURL.replace("uploads/", ""));
-                    if (fs.existsSync(oldPath)) {
-                        fs.unlinkSync(oldPath);
-                    }
-                } catch (err) {
-                    console.error("Local file deletion failed:", err);
-                }
-            }
-
-            // Delete previous file from cloud
-            const parts = userData!.cloud_imgURL.split("/");
-            const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
-            await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+            await s3.send(
+                new DeleteObjectCommand({
+                    Bucket: "twoclicclub",
+                    Key: req.body.imgURL,
+                })
+            );
 
             const dataObj = req.body;
-            dataObj.imgURL = "uploads/" + req.file.filename;
-            dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+            dataObj.imgURL = req.file.cdnUrl;
             const result = await User.findByIdAndUpdate(req.user, dataObj, { new: true });
             res.json(result);
         }
@@ -331,27 +317,6 @@ export async function updateUserApp(req: any, res: Response): Promise<void> {
         console.error("Error updating profile picture:", error);
     }
 }
-
-// export async function updateUserApp(req: any, res: Response): Promise<void> {
-//     try {
-//         if (req.file) {
-//             // const userData = await User.findById(req.user, "imgURL cloud_imgURL");
-
-//             const dataObj:any = {};
-//             dataObj.imgURL = "uploads/" + req.file.filename;
-//             dataObj.cloud_imgURL = req.file.cloudinaryUrl;
-//             const result = await User.findByIdAndUpdate(req.user, dataObj);
-//             res.json(result);
-//         }
-//         else {
-//             const result = await User.findByIdAndUpdate(req.user, req.body);
-//             res.json(result);
-//         }
-//     } catch (error) {
-//         console.error("Error updating profile picture:", error);
-//     }
-// }
-
 
 export const sendEmailC = async (req: Request, res: Response) => {
   const { email, username } = req.body;
