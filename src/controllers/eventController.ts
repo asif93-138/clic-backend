@@ -14,10 +14,11 @@ import CallHistory from '../models/callHistory';
 import FailedClic from '../models/failedClic';
 import Matched from '../models/matched';
 import invitations from '../models/invitations';
-import cloudinary from '../utils/cloudinary';
 import { ObjectId } from 'mongodb';
 import mongoose from "mongoose";
 import InterestedMatch from '../models/interestedMatch';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { s3 } from '../middleware/spaces';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -409,12 +410,10 @@ export async function createEvent(req: any, res: Response): Promise<void> {
       res.status(400).json({ message: 'No file uploaded' });
       return;
     }
-    // http://localhost:5000/uploads/1747643112457-930576226.jpg
 
     const dataObj = req.body;
     const time_arr = JSON.parse(dataObj.event_durations);
-    dataObj.imgURL = "uploads/" + req.file.filename;
-    dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+    dataObj.imgURL = req.file.cdnUrl;
     dataObj.event_duration = time_arr[1];
     dataObj.call_duration = time_arr[0];
     dataObj.gate_closing = time_arr[2];
@@ -606,17 +605,16 @@ export async function updateEvent(req: any, res: Response): Promise<void> {
     }
 
     if (req.file) {
-      // Delete previous file from local storage
-      fs.unlinkSync(req.file.destination + "\\" + req.body.deleteFileName);
 
-      // Delete previous file from cloud
-      const parts = req.body.cloud_imgURL.split("/");
-      const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
-      await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: "twoclicclub",
+          Key: req.body.imgURL,
+        })
+      );
 
       const dataObj = req.body;
-      dataObj.imgURL = "uploads/" + req.file.filename;
-      dataObj.cloud_imgURL = req.file.cloudinaryUrl;
+      dataObj.imgURL = req.file.cdnUrl;
       const time_arr = JSON.parse(dataObj.event_durations);
       dataObj.event_duration = time_arr[1];
       dataObj.call_duration = time_arr[0];
@@ -667,21 +665,26 @@ export async function eventUserStatusAdmin(req: Request, res: Response): Promise
 }
 
 export async function uploadTesting(req: Request, res: Response) {
-  res.status(200).json({ file: req.file });
+  res.status(200).json({ file: (req.file as any)?.cdnUrl });
 }
 
-export async function deletePhoto(req: any, res: Response) {
+export async function deletePhoto(req: Request, res: Response) {
   try {
-    // I:\\clic-server\\uploads\\1756195343323-356631876.jpg
-    // Example URL: https://res.cloudinary.com/demo/image/upload/v1234567890/my_app_uploads/abc123.png
-    const parts = req.body.cloud_imgURL.split("/");
-    const fileWithExt = parts.slice(-2).join("/"); // "my_app_uploads/abc123.png"
-    await cloudinary.uploader.destroy(fileWithExt.replace(/\.[^/.]+$/, ""));
-    fs.unlinkSync(req.body.file_path);
-    res.status(200).send("deleted!");
+    const bucket = "twoclicclub";
+    const key = req.body.imgURL;
+    
+    const result = await s3.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      })
+    );
+   
+    res.json({ message: "Deleted successfully" });
   }
   catch (error) {
-    console.error("Cloudinary error", error);
+    console.error("error deleting photo", error);
+    res.status(500).json({ message: "Delete error" });
   }
 }
 

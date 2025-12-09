@@ -14,7 +14,7 @@ import {
 import { userLogin } from "./controllers/loginController";
 import {
   adminDataEvent,
-  adminEventDetails, adminLogin, deleteUnreadNotifications, downloadImages,
+  adminEventDetails, adminLogin, deleteUnreadNotifications,
   getAllNotifications, notificationCount, readNotification, registerInvites,
 } from "./controllers/adminController";
 import {
@@ -32,9 +32,9 @@ import { upload } from "./middleware/multerConfig";
 import agenda from "./config/agenda";
 import defineNotificationJob from "./jobs/sendNotification";
 import collectFeedback from "./controllers/feedbackCollection";
-import { cloudinaryUpload } from "./middleware/cloudinaryUpload";
 import { socketInit } from "./utils/socketIOSetup";
 import { eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
+import { doUpload } from "./middleware/spaces";
 
 dotenv.config();
 
@@ -93,17 +93,16 @@ app.get("/invites", authMiddleware, getInvites);
 app.get("/invites-banner", authMiddleware, getInvitesBanner);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
-app.get("/download-images", authMiddleware, downloadImages);
 app.get("/waiting-list/:id", authMiddleware, getWaitingList);
 
-app.post("/register", upload.single("profilePicture"), cloudinaryUpload, createUser);
-app.post("/event", authMiddleware, upload.single("eventBanner"), cloudinaryUpload, createEvent);
+app.post("/register", upload.single("profilePicture"), doUpload, createUser);
+app.post("/event", authMiddleware, upload.single("eventBanner"), doUpload, createEvent);
 app.post("/login", userLogin);
 app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 app.post("/eventUserReject", authMiddleware, rejectEventUser);
-app.post( "/testUpload", authMiddleware, upload.single("testUpload"), cloudinaryUpload, uploadTesting);
+app.post( "/testUpload", authMiddleware, upload.single("testUpload"), doUpload, uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/send-invitation-mails", authMiddleware, sendBulkInvitations);
 app.post("/email-verification-code", emailVerificationC);
@@ -119,8 +118,8 @@ app.post("/join", eventJoining);
 app.put("/reset_pass", updatePass);
 app.put("/user/:id", authMiddleware, updateUser);
 app.put("/invite-interaction/:id", authMiddleware, updateInvite);
-app.put("/user-app", authMiddleware, upload.single("profilePicture"), cloudinaryUpload, updateUserApp);
-app.put("/event/:id", authMiddleware, upload.single("eventBanner"), cloudinaryUpload, updateEvent);
+app.put("/user-app", authMiddleware, upload.single("profilePicture"), doUpload, updateUserApp);
+app.put("/event/:id", authMiddleware, upload.single("eventBanner"), doUpload, updateEvent);
 
 app.put("/leaveDatingRoom", leaveDatingC);
 app.put("/extend", extensionC);
