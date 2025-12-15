@@ -192,7 +192,6 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         );
         return token;
       }
-      console.log(`match_found:${socketEmission.pair[0]}`);
       // Emit match event to all users in the event room 
       io.emit(`match_found:${socketEmission.pair[0]}`, {
         ...socketEmission,

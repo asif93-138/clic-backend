@@ -10,8 +10,8 @@ import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 2;
-const femaleCount = 2;
+const maleCount = 10;
+const femaleCount = 10;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
 // npx ts-node src/scripts/liveTest.ts
 // run server npm run dev
@@ -117,7 +117,7 @@ function displayMemory(
   users: Users,
   eventStart?: number
 ) {
-  if (!outsideEventSet) outsideEventSet = new Set();
+  // if (!outsideEventSet) outsideEventSet = new Set();
 
   clearConsole();
   const separator = chalk.blue.bold(" | ");
@@ -450,7 +450,7 @@ export default async function joinLive() {
   // CLI display
   const displayInterval = setInterval(
     () => displayMemory(outsideEvent, users, eventStart),
-    50
+    1000
   );
 
   // Main simulation loop
