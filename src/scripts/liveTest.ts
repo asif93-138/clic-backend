@@ -10,11 +10,12 @@ import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 10;
-const femaleCount = 10;
+const maleCount = 2;
+const femaleCount = 2;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
-// npx ts-node src/scripts/liveTest.ts
-// run server npm run dev
+
+// First run server: npm run dev test
+// Then run test script on another terminal: npx ts-node src/scripts/liveTest.ts
 
 /** ------------------- Memory Store ------------------- */
 type UserType = {
