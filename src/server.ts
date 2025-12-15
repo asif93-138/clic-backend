@@ -95,7 +95,7 @@ app.get("/invites-banner", authMiddleware, getInvitesBanner);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
 app.get("/waiting-list/:id", authMiddleware, getWaitingList);
-app.get("/healthh", async(req, res) => {
+app.get("/health", async(req, res) => {
   res.send("OK");
 });
 
