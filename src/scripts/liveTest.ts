@@ -10,8 +10,8 @@ import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 2;
-const femaleCount = 2;
+const maleCount = 15;
+const femaleCount = 15;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
 
 // First run server: npm run dev test
@@ -342,7 +342,7 @@ async function rsvpPairs() {
 export default async function joinLive() {
   const eventStart = performance.now();
   const users = memoryStore.users;
-  const userIds = Object.keys(users);
+  const userIds = Object.keys(users);D
   const BASE = "http://127.0.0.1:" + process.env.PORT; // socket server
 
   console.log("Starting live simulation for", userIds.length, "users");
