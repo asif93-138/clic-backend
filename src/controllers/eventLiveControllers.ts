@@ -8,7 +8,7 @@ import User from "../models/user.model";
 import FailedClic from "../models/failedClic";
 import Matched from "../models/matched";
 import { io } from "../server";
-
+import { userSocketMap } from "../utils/socketIOSetup";
 
 const APP_ID = process.env.AGORA_APP_ID;
 const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
@@ -25,14 +25,14 @@ async function liveMatches(data: any) {
     });
 
     for (const user of interestedGenderArray) {
-      if (!user.call_history.includes(user_id)) { 
+      if (!user.call_history.includes(user_id)) {
         const userData = await User.findById(user.user_id, "userName imgURL");
         potentialMatches.push(userData);
       }
     }
     const userData = await User.findById(user_id, "userName imgURL");
 
-    io.emit(`${event_id}-${gender}-potential-matches`, userData);
+    io.to(event_id).emit(`${event_id}-${gender}-potential-matches`, userData);
 
     return { potentialMatches };
   }
@@ -193,7 +193,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         return token;
       }
       // Emit match event to all users in the event room 
-      io.emit(`match_found:${socketEmission.pair[0]}`, {
+      io.to(event_id).emit(`match_found:${socketEmission.pair[0]}`, {
         ...socketEmission,
         timer,
         dateRoomDocId: insertDateRoomData._id,
@@ -201,7 +201,7 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         uid: 1,
         remoteUID: 1,
       });
-      io.emit(`match_found:${socketEmission.pair[1]}`, {
+      io.to(event_id).emit(`match_found:${socketEmission.pair[1]}`, {
         ...socketEmission,
         timer,
         dateRoomDocId: insertDateRoomData._id,
@@ -209,6 +209,18 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         uid: 2,
         remoteUID: 2,
       });
+
+      const socketId1 = userSocketMap.get(socketEmission.pair[0]).socket_id;
+      if (socketId1) {
+        const socket = io.sockets.sockets.get(socketId1);
+        socket!.join(dateRoomId);
+      }
+      const socketId2 = userSocketMap.get(socketEmission.pair[1]).socket_id;
+      if (socketId2) {
+        const socket = io.sockets.sockets.get(socketId2);
+        socket!.join(dateRoomId);
+      }
+
       return;
     }
   }
@@ -251,6 +263,16 @@ export async function eventJoining(req: any, res: any) {
 
   if (userObj[0]) flag = true;
 
+  const socketObj = userSocketMap.get(user.user_id);
+  socketObj.event_id = event_id;
+  socketObj.gender = user.gender;
+  socketObj.interested = user.interested;
+  const socketId = socketObj.socket_id;
+  if (socketId) {
+    const socket = io.sockets.sockets.get(socketId);
+    socket!.join(event_id);
+  }
+
   if (!flag) {
     try {
       const data = {
@@ -292,13 +314,13 @@ export async function eventJoining(req: any, res: any) {
     });
   }
   res.on("finish", () => {
-      pairingFunction(user, event_id, eventData.call_duration);
+    pairingFunction(user, event_id, eventData.call_duration);
   });
 }
 
 export async function leaveDatingC(req: Request, res: Response) {
-    leaveDatingRoom(req.body.event_id, req.body.user_id, req.body.left_early);
-    res.json({ message: "leaving dating room.." });
+  leaveDatingRoom(req.body.event_id, req.body.user_id, req.body.left_early);
+  res.json({ message: "leaving dating room.." });
 }
 
 export async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
@@ -330,16 +352,25 @@ export async function leaveDatingRoom(event_id: any, user_id: any, left_early: a
         });
       }
       // emit
-      io.emit(`has_left:${data.dateRoomId}`);
-
+      io.to(data.dateRoomId).emit(`has_left:${data.dateRoomId}`);
+      const socketId1 = userSocketMap.get(data.pair[0]).socket_id;
+      if (socketId1) {
+        const socket = io.sockets.sockets.get(socketId1);
+        socket!.leave(data.dateRoomId);
+      }
+      const socketId2 = userSocketMap.get(data.pair[1]).socket_id;
+      if (socketId2) {
+        const socket = io.sockets.sockets.get(socketId2);
+        socket!.leave(data.dateRoomId);
+      }
       break;
     }
   }
 }
 
 export async function eventLeavingC(req: Request, res: Response) {
-    eventLeaving(req.body);
-    res.json({ message: "event left!" });
+  eventLeaving(req.body);
+  res.json({ message: "event left!" });
 }
 
 export async function eventLeaving(params: any) {
@@ -348,14 +379,23 @@ export async function eventLeaving(params: any) {
     { event_id: params.event_id, user_id: params.user.user_id },
     { status: "inactive", in_event: false }
   );
-  io.emit(
+  const socketObj = userSocketMap.get(params.user.user_id);
+  delete socketObj.event_id;
+  delete socketObj.gender
+  delete socketObj.interested;
+  const socketId = socketObj.socket_id;
+  if (socketId) {
+    const socket = io.sockets.sockets.get(socketId);
+    socket!.leave(params.event_id);
+  }
+  io.to(params.event_id).emit(
     `${params.event_id}-${params.user.gender}-potential-matches-left`,
     params.user.user_id
   );
 }
 
 export async function extensionC(req: Request, res: Response) {
-      const { user_id, dateRoomId, event_id } = req.body;
+  const { user_id, dateRoomId, event_id } = req.body;
   const result: any = await DatingRoom.findOne({
     event_id: event_id,
     dateRoomId: dateRoomId,
@@ -366,7 +406,7 @@ export async function extensionC(req: Request, res: Response) {
     const updatedArr = result.extension;
     updatedArr.push(user_id);
     if (updatedArr.length === 2) {
-      io.emit(`clicked:${dateRoomId}`);
+      io.to(dateRoomId).emit(`clicked:${dateRoomId}`);
       updatedArr.sort();
       // const updateResult = await Matched.create({
       //   event_id: event_id,
@@ -399,38 +439,43 @@ export async function extensionC(req: Request, res: Response) {
       const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {
         extension: updatedArr,
       });
-      io.emit(`extend_request:${dateRoomId}`, { user_id });
+      io.to(dateRoomId).emit(`extend_request:${dateRoomId}`, { user_id });
       res.json({ message: "waiting for your partner" });
     }
   }
 }
 
 export async function leaveDatingSessionC(req: Request, res: Response) {
-      const result: any = await DatingRoom.findOne(
+  const result: any = await DatingRoom.findOne(
     { event_id: req.body.event_id, dateRoomId: req.body.dateRoomId },
     "sessionExpired"
   );
   if (!result.sessionExpired) {
     await DatingRoom.findByIdAndUpdate(result._id, { sessionExpired: true });
-    io.emit(`dating_session_left:${req.body.dateRoomId}`);
+    io.to(req.body.dateRoomId).emit(`dating_session_left:${req.body.dateRoomId}`);
   }
 }
 
+export async function disconnectUser(event_id: any, user: any) {
+  await leaveDatingRoom(event_id, user.user_id, true);
+  await eventLeaving({ event_id, user });
+}
+
 // (async function() {
-      // const data = {
-      //   event_id: "69243fef4d8c79aa0f272ca4",
-      //   user_id: "69243fef4d8c79aa0f272ca0",
-      //   gender: "M",
-      //   interested: "F",
-      //   status: "active",
-      //   in_event: true,
-      //   call_history: ["69243fef4d8c79aa0f272ca0"]
-      // };
-      // const insertedResult = await WaitingRoom.create(data);
-      // console.log(await WaitingRoom.findOneAndUpdate(
-      //   {event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"},
-      //   { status: "inactive", $push: { call_history: "69243fef4d8c79aa0f272c9b" } }
-      // ));
-      // const result = await WaitingRoom.findOne({event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"});
-      // console.log(result?.call_history.includes('69243fef4d8c79aa0f272czz'));
+// const data = {
+//   event_id: "69243fef4d8c79aa0f272ca4",
+//   user_id: "69243fef4d8c79aa0f272ca0",
+//   gender: "M",
+//   interested: "F",
+//   status: "active",
+//   in_event: true,
+//   call_history: ["69243fef4d8c79aa0f272ca0"]
+// };
+// const insertedResult = await WaitingRoom.create(data);
+// console.log(await WaitingRoom.findOneAndUpdate(
+//   {event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"},
+//   { status: "inactive", $push: { call_history: "69243fef4d8c79aa0f272c9b" } }
+// ));
+// const result = await WaitingRoom.findOne({event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"});
+// console.log(result?.call_history.includes('69243fef4d8c79aa0f272czz'));
 // })();

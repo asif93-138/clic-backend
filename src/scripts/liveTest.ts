@@ -357,10 +357,7 @@ export default async function joinLive() {
     const user = users[userId];
     const socket = io(BASE, {
       query: {
-        event_id: memoryStore.event.eventId,
-        user_id: userId,
-        gender: user.gender,
-        interested: user.gender === "M" ? "F" : "M",
+        token: generateToken({ id: userId })
       },
       transports: ["websocket"],
     });

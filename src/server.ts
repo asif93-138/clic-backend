@@ -130,8 +130,7 @@ app.put("/extend", extensionC);
 app.put("/leaveDatingSession", leaveDatingSessionC);
 
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
-app.delete("/delete-unread-notifications", authMiddleware,deleteUnreadNotifications
-);
+app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);
 
 app.delete("/leave_event", eventLeavingC);
 
