@@ -46,7 +46,8 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
-connectDB();
+if (process.argv[2] == "test") connectDB(true);
+else connectDB();
 
 // Register Agenda job
 defineNotificationJob(agenda);
@@ -94,6 +95,9 @@ app.get("/invites-banner", authMiddleware, getInvitesBanner);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
 app.get("/waiting-list/:id", authMiddleware, getWaitingList);
+app.get("/health", async(req, res) => {
+  res.send("OK");
+});
 
 app.post("/register", upload.single("profilePicture"), doUpload, createUser);
 app.post("/event", authMiddleware, upload.single("eventBanner"), doUpload, createEvent);
@@ -126,8 +130,7 @@ app.put("/extend", extensionC);
 app.put("/leaveDatingSession", leaveDatingSessionC);
 
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
-app.delete("/delete-unread-notifications", authMiddleware,deleteUnreadNotifications
-);
+app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);
 
 app.delete("/leave_event", eventLeavingC);
 

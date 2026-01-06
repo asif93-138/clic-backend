@@ -1,28 +1,25 @@
-import { eventLeaving, leaveDatingRoom } from "../controllers/eventLiveControllers";
+import jwt from "jsonwebtoken";
+import { disconnectUser } from "../controllers/eventLiveControllers";
 import { io } from "../server";
 
-async function disconnectUser(event_id: any, user: any) {
-  await leaveDatingRoom(event_id, user.user_id, true);
-  await eventLeaving({ event_id, user });
-}
+export const userSocketMap = new Map<string, any>();
 
 export function socketInit() {
-io.on("connection", (socket: any) => {
-  const event_id = socket.handshake.query.event_id;
-  const user_id = socket.handshake.query.user_id;
-  const gender = socket.handshake.query.gender;
-  const interested = socket.handshake.query.interested;
-  socket.event_id = event_id;
-  socket.user_id = user_id;
-  socket.gender = gender;
-  socket.interested = interested;
+  io.on("connection", (socket: any) => {
+    const token = socket.handshake.query.token;
+    const decodedData: any = jwt.verify(token, "default_secret");
+    userSocketMap.set(decodedData.id, {socket_id: socket.id});
 
-  socket.on("disconnect", () => {
-    const event_id = socket.event_id;
-    const user_id = socket.user_id;
-    const gender = socket.gender;
-    const interested = socket.interested;
-    disconnectUser(event_id, { user_id, gender, interested });
+    socket.on("disconnect", () => {
+      const token = socket.handshake.query.token;
+      const decodedData: any = jwt.verify(token, "default_secret");
+      const user_id = decodedData.id;
+      const socketObj = userSocketMap.get(user_id);
+      if (socketObj.event_id) {
+        const gender = socketObj.gender, interested = socketObj.interested;
+        disconnectUser(socketObj.event_id, { user_id, gender, interested });
+      }
+      userSocketMap.delete(user_id);
+    });
   });
-});
 }

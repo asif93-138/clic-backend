@@ -13,8 +13,9 @@ import { performance } from "perf_hooks";
 const maleCount = 2;
 const femaleCount = 2;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
-// npx ts-node src/scripts/liveTest.ts
-// run server npm run dev
+
+// First run server: npm run dev test
+// Then run test script on another terminal: npx ts-node src/scripts/liveTest.ts
 
 /** ------------------- Memory Store ------------------- */
 type UserType = {
@@ -117,7 +118,7 @@ function displayMemory(
   users: Users,
   eventStart?: number
 ) {
-  if (!outsideEventSet) outsideEventSet = new Set();
+  // if (!outsideEventSet) outsideEventSet = new Set();
 
   clearConsole();
   const separator = chalk.blue.bold(" | ");
@@ -256,7 +257,6 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       lastName: `${i}`,
       userName: `User-M ${i}`,
       imgURL: "uploads/banner-5.png",
-      cloud_imgURL: "default",
       dateOfBirth: new Date(),
       gender: "M",
       city: "Dhaka",
@@ -283,7 +283,6 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       lastName: `${i}`,
       userName: `User-F ${i}`,
       imgURL: "uploads/banner-5.png",
-      cloud_imgURL: "default",
       dateOfBirth: new Date(),
       gender: "F",
       city: "Dhaka",
@@ -310,7 +309,6 @@ async function createEvent(title: string) {
   const result: any = await Event.create({
     title,
     imgURL: "uploads/banner-5.png",
-    cloud_imgURL: "default",
     description: "default",
     date_time: formatToYMDHM(new Date()),
     location: "Dhaka",
@@ -345,7 +343,7 @@ export default async function joinLive() {
   const eventStart = performance.now();
   const users = memoryStore.users;
   const userIds = Object.keys(users);
-  const BASE = "http://localhost:5000"; // socket server
+  const BASE = "http://127.0.0.1:" + process.env.PORT; // socket server
 
   console.log("Starting live simulation for", userIds.length, "users");
 
@@ -359,10 +357,7 @@ export default async function joinLive() {
     const user = users[userId];
     const socket = io(BASE, {
       query: {
-        event_id: memoryStore.event.eventId,
-        user_id: userId,
-        gender: user.gender,
-        interested: user.gender === "M" ? "F" : "M",
+        token: generateToken({ id: userId })
       },
       transports: ["websocket"],
     });
@@ -453,7 +448,7 @@ export default async function joinLive() {
   // CLI display
   const displayInterval = setInterval(
     () => displayMemory(outsideEvent, users, eventStart),
-    50
+    1000
   );
 
   // Main simulation loop
@@ -548,7 +543,7 @@ export default async function joinLive() {
 
 /** ------------------- Main Script ------------------- */
 async function main() {
-  await connectDB();
+  await connectDB(true);
   await mongoose.connection.dropDatabase();
 
   await createBulkUsers(maleCount, femaleCount);
