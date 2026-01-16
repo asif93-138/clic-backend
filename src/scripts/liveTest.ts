@@ -342,7 +342,7 @@ async function rsvpPairs() {
 export default async function joinLive() {
   const eventStart = performance.now();
   const users = memoryStore.users;
-  const userIds = Object.keys(users);D
+  const userIds = Object.keys(users);
   const BASE = "http://127.0.0.1:" + process.env.PORT; // socket server
 
   console.log("Starting live simulation for", userIds.length, "users");
