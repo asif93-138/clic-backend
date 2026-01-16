@@ -10,7 +10,6 @@ export interface IEvent extends Document {
     event_duration: number;
     call_duration: number;
     gate_closing: number;
-    // event_durations: number[]; // call duration in seconds, event duration in minutes, door closing in minutes
     extension_limit: number;
 }
 
@@ -25,7 +24,6 @@ const EventSchema: Schema = new Schema(
         event_duration: {type: Number, required: true},
         call_duration: {type: Number, required: true},
         gate_closing: {type: Number, required: true},
-        // event_durations: { type: [Number], required: true },
         extension_limit: { type: Number, required: true },
     },
     { timestamps: true }

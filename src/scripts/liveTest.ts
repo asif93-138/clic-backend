@@ -258,7 +258,7 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       userName: `User-M ${i}`,
       imgURL: "uploads/banner-5.png",
       dateOfBirth: new Date(),
-      gender: "M",
+      gender: "Male",
       city: "Dhaka",
       where_from: "Dhaka",
       ques_ans: "[]",
@@ -284,7 +284,7 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       userName: `User-F ${i}`,
       imgURL: "uploads/banner-5.png",
       dateOfBirth: new Date(),
-      gender: "F",
+      gender: "Female",
       city: "Dhaka",
       where_from: "Dhaka",
       ques_ans: "[]",
@@ -357,10 +357,7 @@ export default async function joinLive() {
     const user = users[userId];
     const socket = io(BASE, {
       query: {
-        event_id: memoryStore.event.eventId,
-        user_id: userId,
-        gender: user.gender,
-        interested: user.gender === "M" ? "F" : "M",
+        token: generateToken({ id: userId })
       },
       transports: ["websocket"],
     });

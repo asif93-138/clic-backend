@@ -21,7 +21,7 @@ import {
   applyEvent, approveEventUser,
   createEvent, deletePhoto, eventUserStatus, eventUserStatusAdmin, getAllEvents,
   getEvent, getEventForApp, getFutureEvents, getUserPool, getWaitingList,
-  homePageData, rejectEventUser, sendBulkInvitations, updateEvent, uploadTesting,
+  homePageData, pushParticipants, rejectEventUser, sendBulkInvitations, updateEvent, uploadTesting,
 } from "./controllers/eventController";
 import authMiddleware from "./middleware/auth";
 import citiesSearchController from "./controllers/citiesSearchController";
@@ -35,6 +35,7 @@ import collectFeedback from "./controllers/feedbackCollection";
 import { socketInit } from "./utils/socketIOSetup";
 import { eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
 import { doUpload } from "./middleware/spaces";
+import { connectChatRoom, createDirectChat, createGroupChat, disconnectChatRoom, getChatDetails, getChatMetadata, getInbox, markAsRead, sendMessage } from "./controllers/chatController";
 
 dotenv.config();
 
@@ -94,7 +95,10 @@ app.get("/invites", authMiddleware, getInvites);
 app.get("/invites-banner", authMiddleware, getInvitesBanner);
 app.get("/search-user", authMiddleware, searchUser);
 app.get("/future-events-website", getFutureEvents);
+app.get("/inbox", authMiddleware, getInbox);
+app.get("/chat/:chatId/messages", authMiddleware, getChatDetails);
 app.get("/waiting-list/:id", authMiddleware, getWaitingList);
+app.get("/chat/:chatId/metadata", authMiddleware, getChatMetadata);
 app.get("/health", async(req, res) => {
   res.send("OK");
 });
@@ -116,6 +120,11 @@ app.post("/submitFeedback", collectFeedback);
 app.post("/mark-notification-read/:id", authMiddleware, readNotification);
 app.post("/invite", authMiddleware, registerInvites);
 app.post("/interested", authMiddleware, interestedMatchC);
+app.post("/direct-chat", createDirectChat);
+app.post("/group-chat", authMiddleware, createGroupChat);
+app.post("/chat/:chatId/message", authMiddleware, sendMessage);
+app.post("/participant", pushParticipants);
+app.post("/chat/connect", authMiddleware, connectChatRoom);
 
 app.post("/join", eventJoining);
 
@@ -128,10 +137,11 @@ app.put("/event/:id", authMiddleware, upload.single("eventBanner"), doUpload, up
 app.put("/leaveDatingRoom", leaveDatingC);
 app.put("/extend", extensionC);
 app.put("/leaveDatingSession", leaveDatingSessionC);
+app.put("/chat/mark-read", authMiddleware, markAsRead)
 
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
-app.delete("/delete-unread-notifications", authMiddleware,deleteUnreadNotifications
-);
+app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);
+app.delete("/chat/disconnect", authMiddleware, disconnectChatRoom);
 
 app.delete("/leave_event", eventLeavingC);
 
@@ -145,6 +155,3 @@ process.on("SIGTERM", () => {
     process.exit(0);
   });
 });
-// (async function() {
-
-// })();
