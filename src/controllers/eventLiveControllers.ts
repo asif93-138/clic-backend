@@ -9,6 +9,9 @@ import FailedClic from "../models/failedClic";
 import Matched from "../models/matched";
 import { io } from "../server";
 import { userSocketMap } from "../utils/socketIOSetup";
+import Chat from "../models/chat";
+import ChatMetadata from "../models/chatMetadata";
+import { mongooseIDArrayConversion } from "../services/chatServices";
 
 const APP_ID = process.env.AGORA_APP_ID;
 const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
@@ -263,11 +266,16 @@ export async function eventJoining(req: any, res: any) {
 
   if (userObj[0]) flag = true;
 
-  const socketObj = userSocketMap.get(user.user_id);
-  socketObj.event_id = event_id;
-  socketObj.gender = user.gender;
-  socketObj.interested = user.interested;
-  const socketId = socketObj.socket_id;
+  const prev = userSocketMap.get(user.user_id) || {};
+
+  userSocketMap.set(user.user_id, {
+    ...prev,
+    event_id,
+    gender: user.gender,
+    interested: user.interested,
+  });
+  console.log("updated map on join", userSocketMap);
+  const socketId = prev.socket_id;
   if (socketId) {
     const socket = io.sockets.sockets.get(socketId);
     socket!.join(event_id);
@@ -324,6 +332,7 @@ export async function leaveDatingC(req: Request, res: Response) {
 }
 
 export async function leaveDatingRoom(event_id: any, user_id: any, left_early: any) {
+  console.log("Leave dating called! ", user_id);
   const result: any = await DatingRoom.find({ event_id: event_id });
   let data;
   //conditional
@@ -352,13 +361,24 @@ export async function leaveDatingRoom(event_id: any, user_id: any, left_early: a
         });
       }
       // emit
-      io.to(data.dateRoomId).emit(`has_left:${data.dateRoomId}`);
-      const socketId1 = userSocketMap.get(data.pair[0]).socket_id;
+      const roomId = data.dateRoomId;
+
+      // Get the Set of socket IDs in the room
+      const socketsInRoom = io.sockets.adapter.rooms.get(roomId);
+
+      if (!socketsInRoom) {
+        console.log(`Room ${roomId} is empty or does not exist`);
+      } else {
+        console.log(`Sockets in room ${roomId}:`, [...socketsInRoom]);
+      }
+
+      io.to(data.dateRoomId).emit("has_left");
+      const socketId1 = userSocketMap.get(data.pair[0])?.socket_id;
       if (socketId1) {
         const socket = io.sockets.sockets.get(socketId1);
         socket!.leave(data.dateRoomId);
       }
-      const socketId2 = userSocketMap.get(data.pair[1]).socket_id;
+      const socketId2 = userSocketMap.get(data.pair[1])?.socket_id;
       if (socketId2) {
         const socket = io.sockets.sockets.get(socketId2);
         socket!.leave(data.dateRoomId);
@@ -380,14 +400,17 @@ export async function eventLeaving(params: any) {
     { status: "inactive", in_event: false }
   );
   const socketObj = userSocketMap.get(params.user.user_id);
-  delete socketObj.event_id;
-  delete socketObj.gender
-  delete socketObj.interested;
-  const socketId = socketObj.socket_id;
-  if (socketId) {
-    const socket = io.sockets.sockets.get(socketId);
-    socket!.leave(params.event_id);
+  if (socketObj) {
+    delete socketObj.event_id;
+    delete socketObj.gender
+    delete socketObj.interested;
+    const socketId = socketObj.socket_id;
+    if (socketId) {
+      const socket = io.sockets.sockets.get(socketId);
+      socket!.leave(params.event_id);
+    }
   }
+
   io.to(params.event_id).emit(
     `${params.event_id}-${params.user.gender}-potential-matches-left`,
     params.user.user_id
@@ -433,6 +456,12 @@ export async function extensionC(req: Request, res: Response) {
       );
       const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {
         extension: [],
+      });
+      const chatResult = await Chat.create({
+        type: "direct", participants: mongooseIDArrayConversion(updatedArr)
+      });
+      const cMResult = await ChatMetadata.create({
+        chatId: chatResult._id, mutedBy: []
       });
       res.json({ message: "both party have extended" });
     } else {

@@ -8,7 +8,13 @@ export function socketInit() {
   io.on("connection", (socket: any) => {
     const token = socket.handshake.query.token;
     const decodedData: any = jwt.verify(token, "default_secret");
-    userSocketMap.set(decodedData.id, {socket_id: socket.id});
+    const existing = userSocketMap.get(decodedData.id) || {};
+    socket.user_id = decodedData.id;
+    userSocketMap.set(decodedData.id, {
+      ...existing,
+      socket_id: socket.id, // update socket only
+    });
+
 
     socket.on("disconnect", () => {
       const token = socket.handshake.query.token;

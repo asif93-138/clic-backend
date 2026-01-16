@@ -19,6 +19,9 @@ import mongoose from "mongoose";
 import InterestedMatch from '../models/interestedMatch';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../middleware/spaces';
+import { mongooseIDConversion, updateChatParticipants } from '../services/chatServices';
+import Chat from '../models/chat';
+import ChatMetadata from '../models/chatMetadata';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -192,7 +195,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
 export async function getEventForApp(req: any, res: Response): Promise<void> {
   try {
     const result = await Event.findOne({ _id: req.params.id });
-    const status = await eventUser.findOne({event_id: req.params.id, user_id: req.user}, "status");
+    const status = await eventUser.findOne({ event_id: req.params.id, user_id: req.user }, "status");
     const resultOld: any = result!.toObject();
     if (new Date() > new Date(resultOld?.date_time + ":00Z")) {
       const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
@@ -204,7 +207,7 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
     } else {
       if (status) resultOld!.userStatus = status.status;
       else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-       res.json(resultOld); 
+      res.json(resultOld);
     }
 
   } catch (error) {
@@ -420,6 +423,10 @@ export async function createEvent(req: any, res: Response): Promise<void> {
     dataObj.extension_limit = Number(dataObj.extension_limit);
     const insertResult = await Event.create(dataObj);
     createdEvent = insertResult;
+    const chatResult = await Chat.create({ type: "group", event_id: insertResult._id });
+    const cMResult = await ChatMetadata.create({
+      chatId: chatResult._id, name: dataObj.title, mutedBy: []
+    });
     res.json(insertResult);
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -569,7 +576,13 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
       { $set: dataObj_2 }
     );
     if (eventUserResult.acknowledged) {
-      await notification.updateMany({type: "rsvp", "data.event_id": dataObj_1.event_id}, {read: true});
+      await notification.updateMany({ type: "rsvp", "data.event_id": dataObj_1.event_id }, { read: true });
+      await Chat.findOneAndUpdate({ event_id: mongooseIDConversion(dataObj_1.event_id)},
+        {
+          $addToSet: {
+            participants: mongooseIDConversion(dataObj_1.user_id),
+          },
+        });
       res.json({ message: "Successfully approved user!" });
     } else {
       res.status(400).json({ message: "failed!" });
@@ -586,7 +599,7 @@ export async function rejectEventUser(req: Request, res: Response): Promise<void
       event_id: req.body.event_id
     });
     if (eventUserResult.acknowledged) {
-      await invitations.deleteOne({event_id: req.body.event_id, user_id: req.body.user_id})
+      await invitations.deleteOne({ event_id: req.body.event_id, user_id: req.body.user_id })
       res.json({ message: "Successfully removed user!" });
     } else {
       res.status(400).json({ message: "failed!" });
@@ -672,14 +685,14 @@ export async function deletePhoto(req: Request, res: Response) {
   try {
     const bucket = "twoclicclub";
     const key = req.body.imgURL;
-    
+
     const result = await s3.send(
       new DeleteObjectCommand({
         Bucket: bucket,
         Key: key,
       })
     );
-   
+
     res.json({ message: "Deleted successfully" });
   }
   catch (error) {
@@ -819,6 +832,11 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
     card: events,
     people,
   };
+}
+
+export async function pushParticipants(req: Request, res: Response) {
+  const result = await updateChatParticipants(req.body);
+  res.json(result);
 }
 
 // export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: string) {
