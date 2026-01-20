@@ -12,6 +12,7 @@ import { userSocketMap } from "../utils/socketIOSetup";
 import Chat from "../models/chat";
 import ChatMetadata from "../models/chatMetadata";
 import { mongooseIDArrayConversion } from "../services/chatServices";
+import Cliced from "../models/cliced";
 
 const APP_ID = process.env.AGORA_APP_ID;
 const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
@@ -457,12 +458,46 @@ export async function extensionC(req: Request, res: Response) {
       const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {
         extension: [],
       });
-      const chatResult = await Chat.create({
-        type: "direct", participants: mongooseIDArrayConversion(updatedArr)
-      });
-      const cMResult = await ChatMetadata.create({
-        chatId: chatResult._id, mutedBy: []
-      });
+
+      const participants = mongooseIDArrayConversion(updatedArr);
+
+      // 🔥 find exact same participants (order-independent)
+      const chat = await Chat.findOneAndUpdate(
+        {
+          type: "direct",
+          participants: {
+            $all: participants,
+            $size: participants.length,
+          },
+        },
+        {
+          $setOnInsert: {
+            type: "direct",
+            participants,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+        }
+      );
+      await ChatMetadata.findOneAndUpdate(
+        { chatId: chat._id },
+        {
+          $set: {
+            disconnectedBy: [],
+          },
+          $setOnInsert: {
+            chatId: chat._id,
+            mutedBy: [],
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+        }
+      );
+
       res.json({ message: "both party have extended" });
     } else {
       const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {
@@ -488,6 +523,11 @@ export async function leaveDatingSessionC(req: Request, res: Response) {
 export async function disconnectUser(event_id: any, user: any) {
   await leaveDatingRoom(event_id, user.user_id, true);
   await eventLeaving({ event_id, user });
+}
+
+export async function createClics(req: Request, res: Response) {
+  const result = await Cliced.create(req.body);
+  res.json(result);
 }
 
 // (async function() {

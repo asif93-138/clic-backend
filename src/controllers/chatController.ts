@@ -5,6 +5,8 @@ import { io } from '../server';
 import Messages from '../models/message';
 import mongoose from 'mongoose';
 import Chat from '../models/chat';
+import ChatMetadata from '../models/chatMetadata';
+import Event from '../models/event';
 
 export async function createDirectChat(req: Request, res: Response) {
     const result = await insertDirectChat(req.body);
@@ -68,11 +70,11 @@ export async function sendMessage(
     res: Response
 ): Promise<void> {
     try {
-        const { chatId } = req.params;
-        const senderId = req.user; // assume auth middleware
-        const { text = "", media = [] } = req.body;
+        const chatId:string = req.params.chatId;
+        const senderId:string = req.user; // assume auth middleware
+        const { text = "", type, media = [] } = req.body;
 
-        if (!text && (!media || media.length === 0)) {
+        if (!text && !type && (!media || media.length === 0)) {
             res.status(400).json({ message: "Message cannot be empty" });
             return
         }
@@ -99,6 +101,7 @@ export async function sendMessage(
         const messageDoc = await Messages.create({
             chatId: chatObjectId,
             senderId: senderObjectId,
+            type,
             text,
             media,
             readBy: [senderObjectId, ...activeParticipants],
@@ -108,6 +111,7 @@ export async function sendMessage(
             _id: messageDoc._id.toString(),
             chatId: chatId,
             senderId: senderId.toString(),
+            type,
             text: messageDoc.text || "",
             media: messageDoc.media || [],
             readBy: messageDoc.readBy.map((id) => id.toString()),
@@ -140,6 +144,7 @@ export async function sendMessage(
 
         const inboxPayload = {
             chatId: chatId,
+            type,
             lastMessage: text,
             lastMessageSenderId: senderId.toString(),
             lastMessageTime: now.toISOString(),
@@ -177,7 +182,16 @@ export async function sendMessage(
     }
 };
 
-
+// (async function() {
+//     // const result = await Messages.updateMany({}, {type: "text"});   
+//     // console.log(result);
+//     // const result = await Chat.updateMany({type: "direct"}, {disconnected: false});   
+//     // console.log(result);
+//     // const result = await Chat.updateMany({type: "direct"}, {$unset: {disconnected: ""}});
+//     // console.log(result);
+//     // const result = await ChatMetadata.updateMany({}, {disconnectedBy: []});   
+//     // console.log(result);
+// })();
 
 export async function markAsRead(
     req: any,
@@ -242,3 +256,124 @@ export async function markAsRead(
         return
     }
 };
+
+export async function sendEventInviteByChat(req: any, res: Response) {
+const chatData = await Chat.findOne({
+  type: "direct",
+  participants: {
+    $all: [
+      new mongoose.Types.ObjectId(req.user as string),
+      new mongoose.Types.ObjectId(req.body.invitedUser_id as string),
+    ],
+  },
+}, "_id");
+console.log(chatData);
+
+  const chatId = chatData?._id;
+        const senderId:string = req.user; // assume auth middleware
+        const text = "sent an event invitation", type = "invitation", media:any = [];
+        
+
+        if (!text && !type && (!media || media.length === 0)) {
+            res.status(400).json({ message: "Message cannot be empty" });
+            return
+        }
+
+        const chatObjectId = chatId
+        const senderObjectId = new mongoose.Types.ObjectId(senderId);
+        const activeParticipants: mongoose.Types.ObjectId[] = []
+
+        // (find and iterate all participant
+        // if user is active via map check) => activeParticipants = participant[]
+        const chat = await Chat.findById(chatObjectId).select("participants");
+        console.log(chat?.participants)
+        if (chat) {
+            chat.participants.forEach((userId) => {
+                //put map check here
+                if (userSocketMap.has(userId.toString()) && io.sockets.adapter.rooms.get(chatId!.toString())?.has(userSocketMap.get(userId.toString())?.socket_id) && userId.toString() !== senderId) {
+                    activeParticipants.push(userId)
+                }
+
+            });
+        }
+
+        // add message to messages <== participant[] as read
+        const messageDoc = await Messages.create({
+            chatId: chatObjectId,
+            senderId: senderObjectId,
+            type,
+            event_id: new mongoose.Types.ObjectId(req.body.event_id as string),
+            text,
+            media,
+            readBy: [senderObjectId, ...activeParticipants],
+        });
+
+        const eventData = await Event.findById(req.body.event_id, "title imgURL");
+
+        const messagePayload = {
+            _id: messageDoc._id.toString(),
+            chatId: chatId,
+            senderId: senderId.toString(),
+            type,
+            eventData,
+            text: messageDoc.text || "",
+            media: messageDoc.media || [],
+            readBy: messageDoc.readBy.map((id) => id.toString()),
+            createdAt: messageDoc.createdAt.toISOString(),
+        };
+
+
+        const now = new Date();
+        // update chat document (lastsender)
+        await Chat.findOneAndUpdate(
+            {
+                _id: chatObjectId,
+                $or: [
+                    { lastMessageTime: { $lt: now } },
+                    { lastMessageTime: { $exists: false } },
+                ],
+            },
+            {
+                $set: {
+                    lastMessageId: messageDoc._id,
+                    lastMessage: text,
+                    lastMessageSender: senderId.toString(),
+                    lastMessageTime: now,
+                },
+            },
+            { new: true }
+        );
+        // emit to message via room socket (chat) <== participant[] as read
+        io.to(chatId!.toString()).emit("message-update", messagePayload);
+
+        const inboxPayload = {
+            chatId: chatId,
+            type,
+            lastMessage: text,
+            lastMessageSenderId: senderId.toString(),
+            lastMessageTime: now.toISOString(),
+        };
+
+        // iterate activeParticipants to
+        // emit inbox update
+        if (chat) {
+
+            chat.participants.forEach((userId) => {
+                
+                if (userSocketMap.has(userId.toString())) {
+                    console.log(userId, io.sockets.adapter.rooms.get(chatId!.toString())?.has(userSocketMap.get(userId.toString())?.socket_id), io.sockets.adapter.rooms.get(chatId!.toString()),  userSocketMap.get(userId.toString()))
+                    io.to(userSocketMap.get(userId.toString())?.socket_id).emit(
+                        "inbox-update",
+                        { ...inboxPayload, read: io.sockets.adapter.rooms.get(chatId!.toString())?.has(userSocketMap.get(userId.toString())?.socket_id)}
+                    );
+                }
+
+
+            });
+        }
+
+        //  HTTP response
+        res.status(201).json({
+            message: messagePayload,
+        });
+}

@@ -33,9 +33,9 @@ import agenda from "./config/agenda";
 import defineNotificationJob from "./jobs/sendNotification";
 import collectFeedback from "./controllers/feedbackCollection";
 import { socketInit } from "./utils/socketIOSetup";
-import { eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
+import { createClics, eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
 import { doUpload } from "./middleware/spaces";
-import { connectChatRoom, createDirectChat, createGroupChat, disconnectChatRoom, getChatDetails, getChatMetadata, getInbox, markAsRead, sendMessage } from "./controllers/chatController";
+import { connectChatRoom, createDirectChat, createGroupChat, disconnectChatRoom, getChatDetails, getChatMetadata, getInbox, markAsRead, sendMessage, sendEventInviteByChat } from "./controllers/chatController";
 
 dotenv.config();
 
@@ -125,6 +125,8 @@ app.post("/group-chat", authMiddleware, createGroupChat);
 app.post("/chat/:chatId/message", authMiddleware, sendMessage);
 app.post("/participant", pushParticipants);
 app.post("/chat/connect", authMiddleware, connectChatRoom);
+app.post("/chat/event-invite", authMiddleware, sendEventInviteByChat);
+app.post("/clic", authMiddleware, createClics);
 
 app.post("/join", eventJoining);
 

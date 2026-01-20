@@ -110,7 +110,7 @@ export async function fetchInbox({
     { $sort: { effectiveTime: -1 } },
     { $limit: limit },
 
-    /* metadata (mute) */
+    /* metadata */
     {
       $lookup: {
         from: "chatmetadatas",
@@ -123,6 +123,18 @@ export async function fetchInbox({
       $unwind: {
         path: "$metadata",
         preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    /* muted + disconnected */
+    {
+      $addFields: {
+        muted: {
+          $in: [userObjectId, "$metadata.mutedBy"],
+        },
+        disconnected: {
+          $in: [userObjectId, "$metadata.disconnectedBy"],
+        },
       },
     },
 
@@ -180,7 +192,7 @@ export async function fetchInbox({
       },
     },
 
-    /* ───────── NEW: last message sender user ───────── */
+    /* last message */
     {
       $lookup: {
         from: "messages",
@@ -195,6 +207,8 @@ export async function fetchInbox({
         preserveNullAndEmptyArrays: true,
       },
     },
+
+    /* last message sender */
     {
       $lookup: {
         from: "users",
@@ -228,7 +242,7 @@ export async function fetchInbox({
       },
     },
 
-    /* ───────── FINAL SHAPE (only sender logic changed) ───────── */
+    /* final shape */
     {
       $project: {
         _id: 1,
@@ -258,7 +272,15 @@ export async function fetchInbox({
           ],
         },
 
-        /* ✅ UPDATED LOGIC */
+        /* ✅ NEW FIELD */
+        lastMessageType: {
+          $cond: [
+            { $ifNull: ["$lastMessageObj.type", false] },
+            "$lastMessageObj.type",
+            "$$REMOVE",
+          ],
+        },
+
         lastMessageSender: {
           $cond: [
             { $eq: ["$lastMessageObj.senderId", userObjectId] },
@@ -269,10 +291,8 @@ export async function fetchInbox({
 
         lastMessageTime: "$effectiveTime",
 
-        muted: {
-          $in: [userObjectId, "$metadata.mutedBy"],
-        },
-
+        muted: 1,
+        disconnected: 1,
         read: 1,
 
         effectiveTime: 1,
@@ -322,16 +342,48 @@ export async function fetchMessages({
     { $sort: { createdAt: -1 } },
     { $limit: limit },
 
-    /* exact required fields */
+    /* ───────── EVENT LOOKUP (conditional) ───────── */
+    {
+      $lookup: {
+        from: "events",
+        localField: "event_id",
+        foreignField: "_id",
+        as: "eventData",
+      },
+    },
+    {
+      $unwind: {
+        path: "$eventData",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    /* ───────── SHAPE RESPONSE ───────── */
     {
       $project: {
         _id: 1,
         chatId: 1,
         senderId: 1,
+
+        type: 1,
         text: 1,
+        data: 1,
         media: 1,
         readBy: 1,
         createdAt: 1,
+
+        /* ✅ only included if event exists */
+        eventData: {
+          $cond: [
+            { $ifNull: ["$eventData._id", false] },
+            {
+              _id: "$eventData._id",
+              title: "$eventData.title",
+              imgURL: "$eventData.imgURL",
+            },
+            "$$REMOVE",
+          ],
+        },
       },
     },
 
@@ -341,7 +393,6 @@ export async function fetchMessages({
 
   /* cursor logic */
   let nextCursor: Date | null = null;
-
   if (messages.length === limit) {
     nextCursor = messages[0]?.createdAt ?? null;
   }
@@ -351,6 +402,7 @@ export async function fetchMessages({
     nextCursor,
   };
 }
+
 
 
 export async function fetchChatMetadata({
@@ -373,7 +425,7 @@ export async function fetchChatMetadata({
   /* ───────── metadata ───────── */
   const chatMeta = await ChatMetadata.findOne(
     { chatId: chatObjectId },
-    "name mutedBy"
+    "name mutedBy disconnectedBy"
   ).lean();
 
   /* ───────── participants ───────── */
@@ -415,11 +467,16 @@ export async function fetchChatMetadata({
     name:
       chat.type === "group"
         ? chatMeta?.name ?? null
-        : otherUser?.name ?? null, // ✅ UPDATED
+        : otherUser?.name ?? null,
     img,
     type: chat.type,
     mutedBy: chatMeta?.mutedBy ?? [],
+
+    /* ✅ NEW */
+    disconnectedBy: chatMeta?.disconnectedBy ?? [],
+
     participants,
   };
 }
+
 

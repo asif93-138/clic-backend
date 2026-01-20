@@ -21,7 +21,7 @@ export function socketInit() {
       const decodedData: any = jwt.verify(token, "default_secret");
       const user_id = decodedData.id;
       const socketObj = userSocketMap.get(user_id);
-      if (socketObj.event_id) {
+      if (socketObj?.event_id) {
         const gender = socketObj.gender, interested = socketObj.interested;
         disconnectUser(socketObj.event_id, { user_id, gender, interested });
       }

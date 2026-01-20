@@ -22,6 +22,7 @@ import { s3 } from '../middleware/spaces';
 import { mongooseIDConversion, updateChatParticipants } from '../services/chatServices';
 import Chat from '../models/chat';
 import ChatMetadata from '../models/chatMetadata';
+import Cliced from '../models/cliced';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -222,73 +223,6 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
   const limit = 100;
 
   try {
-
-    // const upcomingEvents = await Event.aggregate([
-    //   {
-    //     $lookup: {
-    //       from: "eventusers",
-    //       let: { eventId: "$_id" },
-    //       pipeline: [
-    //         {
-    //           $match: {
-    //             $expr: {
-    //               $and: [
-    //                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
-    //                 { $eq: ["$user_id", userId] },
-    //               ],
-    //             },
-    //           },
-    //         },
-    //       ],
-    //       as: "userEntries",
-    //     },
-    //   },
-    //   {
-    //     $addFields: {
-    //       hasPendingStatus: {
-    //         $in: ["pending", "$userEntries.status"],
-    //       },
-    //       hasApprovedStatus: {
-    //         $in: ["approved", "$userEntries.status"],
-    //       },
-    //       convertedDateTime: {
-    //         $toDate: "$date_time"
-    //       },
-    //       dateTimeDifference: {
-    //         $dateDiff: {
-    //           startDate: new Date(),
-    //           endDate: { $toDate: "$date_time" },
-    //           unit: "day"
-    //         }
-    //       }
-    //     },
-    //   },
-    //   {
-    //     $match: {
-    //       hasApprovedStatus: false,
-    //       $expr: { $gte: [ "$dateTimeDifference", -7 ] }
-    //     },
-    //   },
-    //   {
-    //     $project: {
-    //       title: 1,
-    //       imgURL: 1,
-    //       date_time: 1,
-    //       userStatus: {
-    //         $cond: [
-    //           "$hasPendingStatus",
-    //           "pending",
-    //           "new",
-    //         ],
-    //       },
-    //       createdAt: 1,
-    //     },
-    //   },
-    //   { $sort: { createdAt: -1 } },
-    //   { $skip: page * limit },
-    //   { $limit: limit },
-    // ]);
-
     const upcomingEvents = await Event.aggregate([
       {
         $lookup: {
@@ -352,6 +286,15 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
               default: "new"
             }
           },
+          eventUserRelation: {
+            $switch: {
+              branches: [
+                { case: "$hasPendingStatus", then: "pending" },
+                { case: "$hasWaitingStatus", then: "waiting" },
+              ],
+              default: "new"
+            }
+          },
           event_status: 1,
           createdAt: 1,
         },
@@ -361,19 +304,11 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
       { $limit: limit },
     ]);
 
-    let arr_1: any[] = [], arr_2: any[] = [];
-    const userResult = await eventUser.find({ user_id: req.user });
+    let arr_2: any[] = [];
+    const userResult = await eventUser.find({ user_id: req.user, status: "approved" });
     userResult.forEach((element: any) => {
-      if (element.status === "pending") {
-        arr_1.push(element.event_id);
-      } else if (element.status === "approved") {
-        arr_2.push(element.event_id);
-      }
+      arr_2.push(element.event_id);
     });
-    // if (arr_1.length > 0) {
-    //     const pendingResult = await Event.find({ _id: { $in: arr_1 } }, 'title imgURL date_time event_durations').sort({ _id: 1 });
-    //     arr_1 = pendingResult;
-    // }
     if (arr_2.length > 0) {
       const approvedResult: any = await Event.find({
         _id: { $in: arr_2 },
@@ -383,22 +318,31 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
       }, 'title imgURL date_time event_duration call_duration gate_closing').sort({ createdAt: -1 }).lean();
       const filteredArr: any[] = [];
       approvedResult.forEach((x: any) => {
-        x.userStatus = "approved";
+        x.eventUserRelation = "approved";
         filteredArr.push(x);
       })
       arr_2 = filteredArr;
     }
-
+    console.log(upcomingEvents);
     const uCObj: any = {};
-    upcomingEvents.forEach(x => {
-      if (x.userStatus == "new" && x.event_status == true) x.userStatus = "closed";
+    for (const x of upcomingEvents) {
+      if (x.userStatus == "new") {
+        const invitationStatus = await invitations.findOne({ event_id: x._id, user_id: req.user });
+        if (invitationStatus?.status == "invited") {
+          x.userStatus = "invited"; x.eventUserRelation = "invited";
+        } else {
+          if (x.event_status == true) {
+            x.userStatus = "closed"; x.eventUserRelation = "closed";
+          }
+        }
+      }
       uCObj[x._id] = x;
-    })
+    }
     const aPObj: any = {};
     arr_2.forEach(x => {
       aPObj[x._id] = x;
     })
-
+    
     res.json({ approved: aPObj, upcoming: uCObj }); //  pending: arr_1,
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -577,7 +521,7 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
     );
     if (eventUserResult.acknowledged) {
       await notification.updateMany({ type: "rsvp", "data.event_id": dataObj_1.event_id }, { read: true });
-      await Chat.findOneAndUpdate({ event_id: mongooseIDConversion(dataObj_1.event_id)},
+      await Chat.findOneAndUpdate({ event_id: mongooseIDConversion(dataObj_1.event_id) },
         {
           $addToSet: {
             participants: mongooseIDConversion(dataObj_1.user_id),
@@ -817,12 +761,16 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
         likedBy: user_id,
       });
 
+      const userArr = [p._id.toString(), user_id].sort();
+      const clickCheck = await Cliced.findOne({ person_1: userArr[0], person_2: userArr[1] });
+
       return {
         userID: p._id.toString(),
         userName: p.userName,
         imgURL: p.imgURL,
         gender: p.gender,
         interest: !!likedCheck, // true if found
+        clicked: !!clickCheck, // true if found
       };
     })
   );

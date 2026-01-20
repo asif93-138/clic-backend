@@ -36,6 +36,7 @@ const ChatSchema = new mongoose.Schema(
 );
 
 // 🔥 Critical inbox index
+ChatSchema.index({ type: 1, participants: 1 });
 ChatSchema.index({ participants: 1, lastMessageTime: -1 });
 
 const Chat = mongoose.model("Chat", ChatSchema);
