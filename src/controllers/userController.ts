@@ -12,6 +12,7 @@ import EventCancellation from '../models/eventCancellation';
 import InterestedMatch from '../models/interestedMatch';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../middleware/spaces';
+import Event from '../models/event';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -419,23 +420,29 @@ export async function updateInvite(req: any, res: Response) {
             res.json(invites);
         }
         else {
-            await EventCancellation.deleteOne({event_id: req.body.event_id, title: req.body.title, user_id: req.user, userName: req.body.userName,});
+            const userData = await User.findById(req.user, "userName imgURL");
+            const eventData = await Event.findById(req.body.event_id, "title date_time");
+            if (new Date() > new Date(eventData?.date_time + ":00Z")) {
+                res.status(410).json({message: "event gone!"});
+            } else {
+            await EventCancellation.deleteOne({event_id: req.body.event_id, user_id: req.user});
             const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
             const dataObj = req.body;
             dataObj.status = 'approved';
             dataObj.user_id = req.user;
             const approval = await eventUser.create(dataObj);
-            // const notificationData = new notification({
-            //     type: "rsvp",
-            //     data: {
-            //         event_id: event_id,
-            //         user_id: req.user,
-            //         eventTitle: title,
-            //         userName: userName
-            //     }
-            // });
-            // await notificationData.save();
+            const notificationData = new notification({
+                type: "rsvp",
+                data: {
+                    event_id: req.body.event_id,
+                    user_id: req.user,
+                    eventTitle: eventData?.title,
+                    userName: userData?.userName
+                }
+            });
+            await notificationData.save();
             res.json(invites);
+            }
         }
     }
     catch (error) {

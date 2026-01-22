@@ -33,7 +33,7 @@ import agenda from "./config/agenda";
 import defineNotificationJob from "./jobs/sendNotification";
 import collectFeedback from "./controllers/feedbackCollection";
 import { socketInit } from "./utils/socketIOSetup";
-import { createClics, eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
+import { updateClics, eventJoining, eventLeavingC, extensionC, leaveDatingC, leaveDatingSessionC } from "./controllers/eventLiveControllers";
 import { doUpload } from "./middleware/spaces";
 import { connectChatRoom, createDirectChat, createGroupChat, disconnectChatRoom, getChatDetails, getChatMetadata, getInbox, markAsRead, sendMessage, sendEventInviteByChat } from "./controllers/chatController";
 
@@ -126,7 +126,6 @@ app.post("/chat/:chatId/message", authMiddleware, sendMessage);
 app.post("/participant", pushParticipants);
 app.post("/chat/connect", authMiddleware, connectChatRoom);
 app.post("/chat/event-invite", authMiddleware, sendEventInviteByChat);
-app.post("/clic", authMiddleware, createClics);
 
 app.post("/join", eventJoining);
 
@@ -139,7 +138,8 @@ app.put("/event/:id", authMiddleware, upload.single("eventBanner"), doUpload, up
 app.put("/leaveDatingRoom", leaveDatingC);
 app.put("/extend", extensionC);
 app.put("/leaveDatingSession", leaveDatingSessionC);
-app.put("/chat/mark-read", authMiddleware, markAsRead)
+app.put("/chat/mark-read", authMiddleware, markAsRead);
+app.put("/clic", authMiddleware, updateClics);
 
 app.delete("/deletePhoto", authMiddleware, deletePhoto);
 app.delete("/delete-unread-notifications", authMiddleware, deleteUnreadNotifications);

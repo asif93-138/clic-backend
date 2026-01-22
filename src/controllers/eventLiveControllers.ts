@@ -42,7 +42,7 @@ async function liveMatches(data: any) {
   }
 }
 
-function hasTimePassedPlusHours(datetimeStr: string, duration: number) {
+export function hasTimePassedPlusHours(datetimeStr: string, duration: number) {
   // Parse as UTC Date object
   const originalDate = new Date(datetimeStr); // 'Z' ensures UTC
 
@@ -172,6 +172,14 @@ async function pairingFunction(user: any, event_id: any, timer: any) {
         startedAt: new Date(),
       };
       const insertCHData = await CallHistory.create(callHistoryData);
+
+      await Cliced.create({
+        event_id: event_id,
+        dateRoomDocId: insertDateRoomData._id,
+        clics: [],
+        person_1: socketEmission.pair[0],
+        person_2: socketEmission.pair[1],
+      });
 
       // agora authentication + setup
       const channelName = dateRoomId;
@@ -525,26 +533,26 @@ export async function disconnectUser(event_id: any, user: any) {
   await eventLeaving({ event_id, user });
 }
 
-export async function createClics(req: Request, res: Response) {
-  const result = await Cliced.create(req.body);
+export async function updateClics(req: any, res: Response) {
+  const result = await Cliced.findOneAndUpdate({ event_id: req.body.event_id, dateRoomDocId: req.body.dateRoomDocId },
+    { $addToSet: { clics: req.user } }, { new: true }
+  );
+  if (result) {
+    if (result?.person_1 == req.user) {
+      const socket_id = userSocketMap.get(result?.person_2).socket_id;
+      io.to(socket_id).emit("cliced", result);
+    }
+    else {
+      const socket_id = userSocketMap.get(result?.person_1).socket_id;
+      io.to(socket_id).emit("cliced", result);
+    }
+  }
   res.json(result);
 }
 
-// (async function() {
-// const data = {
-//   event_id: "69243fef4d8c79aa0f272ca4",
-//   user_id: "69243fef4d8c79aa0f272ca0",
-//   gender: "M",
-//   interested: "F",
-//   status: "active",
-//   in_event: true,
-//   call_history: ["69243fef4d8c79aa0f272ca0"]
-// };
-// const insertedResult = await WaitingRoom.create(data);
-// console.log(await WaitingRoom.findOneAndUpdate(
-//   {event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"},
-//   { status: "inactive", $push: { call_history: "69243fef4d8c79aa0f272c9b" } }
-// ));
-// const result = await WaitingRoom.findOne({event_id: "69243fef4d8c79aa0f272ca4", user_id: "69243fef4d8c79aa0f272ca0"});
-// console.log(result?.call_history.includes('69243fef4d8c79aa0f272czz'));
+// (async function () {
+//   const result = await Cliced.findOneAndUpdate({ event_id: "695a91704e807ff62c858e92", dateRoomDocId: "695a91704e807ff62c858e92" },
+//     {$addToSet: { clics: "695a91704e807ff62c858e8e" }}, {new: true}
+//   );
+//   console.log(result);
 // })();

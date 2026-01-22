@@ -23,6 +23,7 @@ import { mongooseIDConversion, updateChatParticipants } from '../services/chatSe
 import Chat from '../models/chat';
 import ChatMetadata from '../models/chatMetadata';
 import Cliced from '../models/cliced';
+import { hasTimePassedPlusHours } from './eventLiveControllers';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -198,19 +199,21 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
     const result = await Event.findOne({ _id: req.params.id });
     const status = await eventUser.findOne({ event_id: req.params.id, user_id: req.user }, "status");
     const resultOld: any = result!.toObject();
-    if (new Date() > new Date(resultOld?.date_time + ":00Z")) {
-      const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
-      const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
-      resultOld!.participants = users;
-      if (status) resultOld!.userStatus = status.status;
-      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      res.json(resultOld);
-    } else {
-      if (status) resultOld!.userStatus = status.status;
-      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      res.json(resultOld);
+    if (status) resultOld!.eventUserRelation = status.status;
+    else {
+      const invitationStatus = await invitations.findOne({ event_id: req.params.id, user_id: req.user });
+      if (invitationStatus?.status == "invited") {
+        resultOld!.eventUserRelation = "invited";
+      } else {
+        resultOld!.eventUserRelation = result?.event_status === true ? "closed" : "new";
+      }
     }
-
+    const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
+    const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
+    resultOld!.participants = users;
+    resultOld!.isEventLive = new Date() > new Date(resultOld?.date_time + ":00Z") && !hasTimePassedPlusHours(resultOld?.date_time + ":00Z", resultOld?.event_duration).hasPassed;
+    if (!req.query.web) resultOld!.date_time = new Date(resultOld?.date_time + ":00Z");
+    res.json(resultOld);
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
@@ -318,12 +321,13 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
       }, 'title imgURL date_time event_duration call_duration gate_closing').sort({ createdAt: -1 }).lean();
       const filteredArr: any[] = [];
       approvedResult.forEach((x: any) => {
+        x.isEventLive = new Date() > new Date(x.date_time + ":00Z") && !hasTimePassedPlusHours(x.date_time + ":00Z", x.event_duration).hasPassed;
         x.eventUserRelation = "approved";
         filteredArr.push(x);
       })
       arr_2 = filteredArr;
     }
-    console.log(upcomingEvents);
+
     const uCObj: any = {};
     for (const x of upcomingEvents) {
       if (x.userStatus == "new") {
@@ -336,13 +340,14 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
           }
         }
       }
+      x.isEventLive = false;
       uCObj[x._id] = x;
     }
     const aPObj: any = {};
     arr_2.forEach(x => {
       aPObj[x._id] = x;
     })
-    
+
     res.json({ approved: aPObj, upcoming: uCObj }); //  pending: arr_1,
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -394,7 +399,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 export async function applyEvent(req: any, res: Response): Promise<void> {
   try {
     const { eventId, userStatus } = req.body;
-    let status: "new" | "closed" | "waiting" | "pending" | "approved" | string | undefined;
+    let status: "new" | "closed" | "waiting" | "pending" | "approved" | "invite-accept" | "invite-reject" | string | undefined;
     const invitationCheck = await invitations.findOne({ event_id: eventId, user_id: req.user });
     const dataObj_1 = { event_id: eventId, user_id: req.user, userStatus, status };
     // Edgecase: Stale data from userStatus
@@ -471,6 +476,39 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
         } else {
           res.status(400).json({ message: "failed!" });
         }
+      }
+    } else if (dataObj_1.userStatus === 'invite-accept') {
+      const poolName = await Event.findOne({ _id: eventId }, "title date_time");
+      if (new Date() > new Date(poolName?.date_time + ":00Z")) {res.status(410).json({message: "event gone!"});} else {
+        await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+        if (invitationCheck) {
+          const invites = await invitations.findByIdAndUpdate(invitationCheck._id, { status: "accepted" });
+        }
+        dataObj_1.status = 'approved';
+        const insertResult = await eventUser.create(dataObj_1);
+
+        const userData = await User.findById(req.user, 'userName');
+        const notificationData = new notification({
+          type: "rsvp",
+          data: {
+            event_id: dataObj_1.event_id,
+            user_id: req.user,
+            eventTitle: poolName?.title,
+            userName: userData?.userName
+          }
+        });
+        await notificationData.save();
+        res.json({ userStatus: "approved" });
+      }
+    } else if (dataObj_1.userStatus === 'invite-reject') {
+      if (invitationCheck) {
+        const invites = await invitations.findByIdAndUpdate(invitationCheck._id, { status: "rejected" });
+      }
+      const poolStatusCheck = await Event.findOne({ _id: eventId }, "event_status");
+      if (poolStatusCheck?.event_status === true) {
+        res.json({ userStatus: "closed" });
+      } else {
+        res.json({ userStatus: "new" });
       }
     } else if (dataObj_1.userStatus === 'waiting') {
       res.status(400).json({ message: "invalid request!" });
