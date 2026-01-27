@@ -32,3 +32,6 @@ Thumbs.db
 
 # Nodemon & Debug files
 .nodemon-debug.json
+.bash_history
+.npm/
+.pm2/

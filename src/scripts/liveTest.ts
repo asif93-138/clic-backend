@@ -11,8 +11,8 @@ import { performance } from "perf_hooks";
 import { qAs } from "../editor";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 2;
-const femaleCount = 2;
+const maleCount = 15;
+const femaleCount = 15;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
 
 // First run server: npm run dev test
