@@ -133,3 +133,11 @@ export async function registerInvites(req: Request, res: Response) {
         res.status(500).json(error)
     }
 }
+
+// (async function () {
+//     const inviteResult = await invitations.create({
+//         event_id: "695a91704e807ff62c858e92", title: "Test Event", user_id: "695a91704e807ff62c858e89", 
+//         userName: "User-M 1", user_imgURL: "uploads/1765377068784-880713060.jpeg", status: "invited"
+//     });
+//         console.log(inviteResult);
+// })()

@@ -22,6 +22,8 @@ import { s3 } from '../middleware/spaces';
 import { mongooseIDConversion, updateChatParticipants } from '../services/chatServices';
 import Chat from '../models/chat';
 import ChatMetadata from '../models/chatMetadata';
+import Cliced from '../models/cliced';
+import { hasTimePassedPlusHours } from './eventLiveControllers';
 
 const getGenderCountsByEvent = async (eventId: string) => {
   const result = await eventUser.aggregate([
@@ -197,19 +199,23 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
     const result = await Event.findOne({ _id: req.params.id });
     const status = await eventUser.findOne({ event_id: req.params.id, user_id: req.user }, "status");
     const resultOld: any = result!.toObject();
-    if (new Date() > new Date(resultOld?.date_time + ":00Z")) {
-      const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
-      const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
-      resultOld!.participants = users;
-      if (status) resultOld!.userStatus = status.status;
-      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      res.json(resultOld);
-    } else {
-      if (status) resultOld!.userStatus = status.status;
-      else resultOld!.userStatus = result?.event_status === true ? "closed" : "new";
-      res.json(resultOld);
+    if (status) resultOld!.eventUserRelation = status.status;
+    else {
+      const invitationStatus = await invitations.findOne({ event_id: req.params.id, user_id: req.user });
+      if (invitationStatus?.status == "invited") {
+        resultOld!.eventUserRelation = "invited";
+      } else {
+        resultOld!.eventUserRelation = result?.event_status === true ? "closed" : "new";
+      }
     }
-
+    const newResult = await eventUser.find({ event_id: req.params.id, status: "approved" }, "user_id");
+    const users = await User.find({ _id: { $in: newResult.map(x => x.user_id) } }, "userName imgURL gender");
+    resultOld!.participants = users;
+    resultOld!.isEventLive = new Date() > new Date(resultOld?.date_time + ":00Z") && !hasTimePassedPlusHours(resultOld?.date_time + ":00Z", resultOld?.event_duration).hasPassed;
+    if (!req.query.web) resultOld!.date_time = new Date(resultOld?.date_time + ":00Z");
+    const chatData = await Chat.findOne({event_id: result?._id});
+    resultOld!.chatId = chatData?._id
+    res.json(resultOld);
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
@@ -222,73 +228,6 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
   const limit = 100;
 
   try {
-
-    // const upcomingEvents = await Event.aggregate([
-    //   {
-    //     $lookup: {
-    //       from: "eventusers",
-    //       let: { eventId: "$_id" },
-    //       pipeline: [
-    //         {
-    //           $match: {
-    //             $expr: {
-    //               $and: [
-    //                 { $eq: ["$event_id", { $toString: "$$eventId" }] },
-    //                 { $eq: ["$user_id", userId] },
-    //               ],
-    //             },
-    //           },
-    //         },
-    //       ],
-    //       as: "userEntries",
-    //     },
-    //   },
-    //   {
-    //     $addFields: {
-    //       hasPendingStatus: {
-    //         $in: ["pending", "$userEntries.status"],
-    //       },
-    //       hasApprovedStatus: {
-    //         $in: ["approved", "$userEntries.status"],
-    //       },
-    //       convertedDateTime: {
-    //         $toDate: "$date_time"
-    //       },
-    //       dateTimeDifference: {
-    //         $dateDiff: {
-    //           startDate: new Date(),
-    //           endDate: { $toDate: "$date_time" },
-    //           unit: "day"
-    //         }
-    //       }
-    //     },
-    //   },
-    //   {
-    //     $match: {
-    //       hasApprovedStatus: false,
-    //       $expr: { $gte: [ "$dateTimeDifference", -7 ] }
-    //     },
-    //   },
-    //   {
-    //     $project: {
-    //       title: 1,
-    //       imgURL: 1,
-    //       date_time: 1,
-    //       userStatus: {
-    //         $cond: [
-    //           "$hasPendingStatus",
-    //           "pending",
-    //           "new",
-    //         ],
-    //       },
-    //       createdAt: 1,
-    //     },
-    //   },
-    //   { $sort: { createdAt: -1 } },
-    //   { $skip: page * limit },
-    //   { $limit: limit },
-    // ]);
-
     const upcomingEvents = await Event.aggregate([
       {
         $lookup: {
@@ -352,6 +291,15 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
               default: "new"
             }
           },
+          eventUserRelation: {
+            $switch: {
+              branches: [
+                { case: "$hasPendingStatus", then: "pending" },
+                { case: "$hasWaitingStatus", then: "waiting" },
+              ],
+              default: "new"
+            }
+          },
           event_status: 1,
           createdAt: 1,
         },
@@ -361,19 +309,11 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
       { $limit: limit },
     ]);
 
-    let arr_1: any[] = [], arr_2: any[] = [];
-    const userResult = await eventUser.find({ user_id: req.user });
+    let arr_2: any[] = [];
+    const userResult = await eventUser.find({ user_id: req.user, status: "approved" });
     userResult.forEach((element: any) => {
-      if (element.status === "pending") {
-        arr_1.push(element.event_id);
-      } else if (element.status === "approved") {
-        arr_2.push(element.event_id);
-      }
+      arr_2.push(element.event_id);
     });
-    // if (arr_1.length > 0) {
-    //     const pendingResult = await Event.find({ _id: { $in: arr_1 } }, 'title imgURL date_time event_durations').sort({ _id: 1 });
-    //     arr_1 = pendingResult;
-    // }
     if (arr_2.length > 0) {
       const approvedResult: any = await Event.find({
         _id: { $in: arr_2 },
@@ -383,17 +323,28 @@ export async function getUserPool(req: any, res: Response): Promise<void> {
       }, 'title imgURL date_time event_duration call_duration gate_closing').sort({ createdAt: -1 }).lean();
       const filteredArr: any[] = [];
       approvedResult.forEach((x: any) => {
-        x.userStatus = "approved";
+        x.isEventLive = new Date() > new Date(x.date_time + ":00Z") && !hasTimePassedPlusHours(x.date_time + ":00Z", x.event_duration).hasPassed;
+        x.eventUserRelation = "approved";
         filteredArr.push(x);
       })
       arr_2 = filteredArr;
     }
 
     const uCObj: any = {};
-    upcomingEvents.forEach(x => {
-      if (x.userStatus == "new" && x.event_status == true) x.userStatus = "closed";
+    for (const x of upcomingEvents) {
+      if (x.userStatus == "new") {
+        const invitationStatus = await invitations.findOne({ event_id: x._id, user_id: req.user });
+        if (invitationStatus?.status == "invited") {
+          x.userStatus = "invited"; x.eventUserRelation = "invited";
+        } else {
+          if (x.event_status == true) {
+            x.userStatus = "closed"; x.eventUserRelation = "closed";
+          }
+        }
+      }
+      x.isEventLive = false;
       uCObj[x._id] = x;
-    })
+    }
     const aPObj: any = {};
     arr_2.forEach(x => {
       aPObj[x._id] = x;
@@ -450,7 +401,7 @@ export async function createEvent(req: any, res: Response): Promise<void> {
 export async function applyEvent(req: any, res: Response): Promise<void> {
   try {
     const { eventId, userStatus } = req.body;
-    let status: "new" | "closed" | "waiting" | "pending" | "approved" | string | undefined;
+    let status: "new" | "closed" | "waiting" | "pending" | "approved" | "invite-accept" | "invite-reject" | string | undefined;
     const invitationCheck = await invitations.findOne({ event_id: eventId, user_id: req.user });
     const dataObj_1 = { event_id: eventId, user_id: req.user, userStatus, status };
     // Edgecase: Stale data from userStatus
@@ -528,6 +479,39 @@ export async function applyEvent(req: any, res: Response): Promise<void> {
           res.status(400).json({ message: "failed!" });
         }
       }
+    } else if (dataObj_1.userStatus === 'invite-accept') {
+      const poolName = await Event.findOne({ _id: eventId }, "title date_time");
+      if (new Date() > new Date(poolName?.date_time + ":00Z")) {res.status(410).json({message: "event gone!"});} else {
+        await EventCancellation.deleteOne({ event_id: dataObj_1.event_id, user_id: dataObj_1.user_id });
+        if (invitationCheck) {
+          const invites = await invitations.findByIdAndUpdate(invitationCheck._id, { status: "accepted" });
+        }
+        dataObj_1.status = 'approved';
+        const insertResult = await eventUser.create(dataObj_1);
+
+        const userData = await User.findById(req.user, 'userName');
+        const notificationData = new notification({
+          type: "rsvp",
+          data: {
+            event_id: dataObj_1.event_id,
+            user_id: req.user,
+            eventTitle: poolName?.title,
+            userName: userData?.userName
+          }
+        });
+        await notificationData.save();
+        res.json({ userStatus: "approved" });
+      }
+    } else if (dataObj_1.userStatus === 'invite-reject') {
+      if (invitationCheck) {
+        const invites = await invitations.findByIdAndUpdate(invitationCheck._id, { status: "rejected" });
+      }
+      const poolStatusCheck = await Event.findOne({ _id: eventId }, "event_status");
+      if (poolStatusCheck?.event_status === true) {
+        res.json({ userStatus: "closed" });
+      } else {
+        res.json({ userStatus: "new" });
+      }
     } else if (dataObj_1.userStatus === 'waiting') {
       res.status(400).json({ message: "invalid request!" });
     } else if (dataObj_1.userStatus === 'pending') {
@@ -577,7 +561,7 @@ export async function approveEventUser(req: Request, res: Response): Promise<voi
     );
     if (eventUserResult.acknowledged) {
       await notification.updateMany({ type: "rsvp", "data.event_id": dataObj_1.event_id }, { read: true });
-      await Chat.findOneAndUpdate({ event_id: mongooseIDConversion(dataObj_1.event_id)},
+      await Chat.findOneAndUpdate({ event_id: mongooseIDConversion(dataObj_1.event_id) },
         {
           $addToSet: {
             participants: mongooseIDConversion(dataObj_1.user_id),
@@ -817,12 +801,16 @@ export async function getApprovedOppositeGenderUsersInFutureEvents(user_id: stri
         likedBy: user_id,
       });
 
+      const userArr = [p._id.toString(), user_id].sort();
+      const clickCheck = await Cliced.findOne({ person_1: userArr[0], person_2: userArr[1] });
+
       return {
         userID: p._id.toString(),
         userName: p.userName,
         imgURL: p.imgURL,
         gender: p.gender,
         interest: !!likedCheck, // true if found
+        clicked: !!clickCheck, // true if found
       };
     })
   );

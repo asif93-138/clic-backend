@@ -12,6 +12,7 @@ import EventCancellation from '../models/eventCancellation';
 import InterestedMatch from '../models/interestedMatch';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../middleware/spaces';
+import Event from '../models/event';
 
 export async function getAllUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -109,139 +110,139 @@ export async function createUser(req: any, res: Response): Promise<void> {
         const newUser = new User(dataObj);
         await newUser.save();
         const token = generateToken({ id: newUser._id });
-let qaTxt = "";
-JSON.parse(dataObj.ques_ans).forEach((x: { question: string; selectedAns: string; }, y: number) => 
-    qaTxt += `
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">
-            <p style="margin: 0 0 8px 0; font-weight: 600; color: #212529; font-size: 15px;">${y+1}. ${x.question}</p>
-            <p style="margin: 0; color: #495057; font-size: 14px; padding-left: 20px;">→ ${x.selectedAns}</p>
-        </div>
-    `
-);
+// let qaTxt = "";
+// JSON.parse(dataObj.ques_ans).forEach((x: { question: string; selectedAns: string; }, y: number) => 
+//     qaTxt += `
+//         <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">
+//             <p style="margin: 0 0 8px 0; font-weight: 600; color: #212529; font-size: 15px;">${y+1}. ${x.question}</p>
+//             <p style="margin: 0; color: #495057; font-size: 14px; padding-left: 20px;">→ ${x.selectedAns}</p>
+//         </div>
+//     `
+// );
 
-await sendEmail(
-    "thehumanchemistrypilot@gmail.com",
-    "New member registered",
-    "Visit admin panel for more details!",
-    `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #ffffff;">
+// await sendEmail(
+//     "thehumanchemistrypilot@gmail.com",
+//     "New member registered",
+//     "Visit admin panel for more details!",
+//     `
+//     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #ffffff;">
         
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">New Member Registration</h1>
-            <p style="color: #f0f0f0; margin: 10px 0 0 0; font-size: 14px;">A new member has joined the community</p>
-        </div>
+//         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+//             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">New Member Registration</h1>
+//             <p style="color: #f0f0f0; margin: 10px 0 0 0; font-size: 14px;">A new member has joined the community</p>
+//         </div>
        
        
-        <div style="padding: 40px 30px; background-color: #ffffff;">
+//         <div style="padding: 40px 30px; background-color: #ffffff;">
              
-            <div style="text-align: center; margin-bottom: 30px;">
-                <img src="https://twoclicclub.ams3.cdn.digitaloceanspaces.com/${req.file.cdnUrl}" 
-                     width="120" 
-                     style="border-radius: 5%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
-                     alt="Profile" />
-            </div>
+//             <div style="text-align: center; margin-bottom: 30px;">
+//                 <img src="https://twoclicclub.ams3.cdn.digitaloceanspaces.com/${req.file.cdnUrl}" 
+//                      width="120" 
+//                      style="border-radius: 5%; border: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
+//                      alt="Profile" />
+//             </div>
             
             
-            <div style="margin-bottom: 35px;">
-                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Personal Information</h2>
+//             <div style="margin-bottom: 35px;">
+//                 <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Personal Information</h2>
                 
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Name:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.userName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Email:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.email}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Date of Birth:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.dateOfBirth}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Occupation:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.occupation}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Gender:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.gender}</td>
-                    </tr>
-                </table>
-            </div>
+//                 <table style="width: 100%; border-collapse: collapse;">
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Name:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.userName}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Email:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.email}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Date of Birth:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.dateOfBirth}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Occupation:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.occupation}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Gender:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.gender}</td>
+//                     </tr>
+//                 </table>
+//             </div>
             
              
-            <div style="margin-bottom: 35px;">
-                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Location Details</h2>
+//             <div style="margin-bottom: 35px;">
+//                 <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Location Details</h2>
                 
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">From (city):</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_from}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Lives (city):</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_live}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Cities Frequent:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.cities_frequent}</td>
-                    </tr>
-                </table>
-            </div>
+//                 <table style="width: 100%; border-collapse: collapse;">
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">From (city):</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_from}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Lives (city):</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.where_live}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Cities Frequent:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.cities_frequent}</td>
+//                     </tr>
+//                 </table>
+//             </div>
             
            
-            <div style="margin-bottom: 35px;">
-                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Social & Referral</h2>
+//             <div style="margin-bottom: 35px;">
+//                 <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Social & Referral</h2>
                 
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Heard from:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.hearingPlatform}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Referred By:</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.referredBy}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Platform):</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaObj}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Handle):</td>
-                        <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaHandle}</td>
-                    </tr>
-                </table>
-            </div>
+//                 <table style="width: 100%; border-collapse: collapse;">
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057; width: 40%;">Heard from:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.hearingPlatform}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Referred By:</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.referredBy}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Platform):</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaObj}</td>
+//                     </tr>
+//                     <tr>
+//                         <td style="padding: 12px 15px; background-color: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #495057;">Social Media (Handle):</td>
+//                         <td style="padding: 12px 15px; background-color: #ffffff; border-bottom: 1px solid #e9ecef; color: #212529;">${req.body.socialMediaHandle}</td>
+//                     </tr>
+//                 </table>
+//             </div>
             
              
-            <div style="margin-bottom: 35px;">
-                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">About</h2>
-                <p style="margin: 0; padding: 15px; background-color: #f8f9fa; border-radius: 6px; color: #495057; line-height: 1.6; font-size: 14px;">${req.body.about || 'No information provided'}</p>
-            </div>
+//             <div style="margin-bottom: 35px;">
+//                 <h2 style="color: #667eea; font-size: 20px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">About</h2>
+//                 <p style="margin: 0; padding: 15px; background-color: #f8f9fa; border-radius: 6px; color: #495057; line-height: 1.6; font-size: 14px;">${req.body.about || 'No information provided'}</p>
+//             </div>
             
              
-            <div style="margin-bottom: 30px;">
-                <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Q/A Test Results</h2>
-                ${qaTxt}
-            </div>
+//             <div style="margin-bottom: 30px;">
+//                 <h2 style="color: #667eea; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; font-weight: 600;">Q/A Test Results</h2>
+//                 ${qaTxt}
+//             </div>
             
          
-            <div style="text-align: center; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
-                <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">View complete member details</p>
-                <a href="https://admin.clicclub.cc/" 
-                   style="display: inline-block; padding: 12px 30px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    Visit Admin Panel
-                </a>
-            </div>
-        </div>
+//             <div style="text-align: center; margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
+//                 <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">View complete member details</p>
+//                 <a href="https://admin.clicclub.cc/" 
+//                    style="display: inline-block; padding: 12px 30px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+//                     Visit Admin Panel
+//                 </a>
+//             </div>
+//         </div>
         
        
-        <div style="padding: 20px 30px; background-color: #f8f9fa; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
-            <p style="margin: 0; color: #6c757d; font-size: 13px;">This is an automated notification from your member registration system</p>
-        </div>
-    </div>
-    `
-);
+//         <div style="padding: 20px 30px; background-color: #f8f9fa; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
+//             <p style="margin: 0; color: #6c757d; font-size: 13px;">This is an automated notification from your member registration system</p>
+//         </div>
+//     </div>
+//     `
+// );
         const notificationData = new notification({
             type: "signup",
             data: {
@@ -419,23 +420,29 @@ export async function updateInvite(req: any, res: Response) {
             res.json(invites);
         }
         else {
-            await EventCancellation.deleteOne({event_id: req.body.event_id, title: req.body.title, user_id: req.user, userName: req.body.userName,});
+            const userData = await User.findById(req.user, "userName imgURL");
+            const eventData = await Event.findById(req.body.event_id, "title date_time");
+            if (new Date() > new Date(eventData?.date_time + ":00Z")) {
+                res.status(410).json({message: "event gone!"});
+            } else {
+            await EventCancellation.deleteOne({event_id: req.body.event_id, user_id: req.user});
             const invites = await invitations.findByIdAndUpdate(req.params.id, req.body);
             const dataObj = req.body;
             dataObj.status = 'approved';
             dataObj.user_id = req.user;
             const approval = await eventUser.create(dataObj);
-            // const notificationData = new notification({
-            //     type: "rsvp",
-            //     data: {
-            //         event_id: event_id,
-            //         user_id: req.user,
-            //         eventTitle: title,
-            //         userName: userName
-            //     }
-            // });
-            // await notificationData.save();
+            const notificationData = new notification({
+                type: "rsvp",
+                data: {
+                    event_id: req.body.event_id,
+                    user_id: req.user,
+                    eventTitle: eventData?.title,
+                    userName: userData?.userName
+                }
+            });
+            await notificationData.save();
             res.json(invites);
+            }
         }
     }
     catch (error) {
