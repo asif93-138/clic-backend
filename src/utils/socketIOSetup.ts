@@ -14,6 +14,7 @@ export function socketInit() {
       ...existing,
       socket_id: socket.id, // update socket only
     });
+    console.log("socket connect", "socket_id", socket.id, "user_id", decodedData.id);
 
 
     socket.on("disconnect", () => {
@@ -26,6 +27,7 @@ export function socketInit() {
         disconnectUser(socketObj.event_id, { user_id, gender, interested });
       }
       userSocketMap.delete(user_id);
+      console.log("socket disconnect", "socket_id", socket.id, "user_id", decodedData.id);
     });
   });
 }

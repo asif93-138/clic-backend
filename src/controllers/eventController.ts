@@ -213,6 +213,8 @@ export async function getEventForApp(req: any, res: Response): Promise<void> {
     resultOld!.participants = users;
     resultOld!.isEventLive = new Date() > new Date(resultOld?.date_time + ":00Z") && !hasTimePassedPlusHours(resultOld?.date_time + ":00Z", resultOld?.event_duration).hasPassed;
     if (!req.query.web) resultOld!.date_time = new Date(resultOld?.date_time + ":00Z");
+    const chatData = await Chat.findOne({event_id: result?._id});
+    resultOld!.chatId = chatData?._id
     res.json(resultOld);
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);

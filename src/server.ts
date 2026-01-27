@@ -110,7 +110,7 @@ app.post("/admin", adminLogin);
 app.post("/eventActionUpdate", authMiddleware, applyEvent);
 app.post("/eventUserApproval", authMiddleware, approveEventUser);
 app.post("/eventUserReject", authMiddleware, rejectEventUser);
-app.post( "/testUpload", authMiddleware, upload.single("testUpload"), doUpload, uploadTesting);
+app.post("/testUpload", authMiddleware, upload.single("testUpload"), doUpload, uploadTesting);
 app.post("/sendEmail", authMiddleware, sendEmailC);
 app.post("/send-invitation-mails", authMiddleware, sendBulkInvitations);
 app.post("/email-verification-code", emailVerificationC);

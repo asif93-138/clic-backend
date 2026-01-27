@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import Chat from '../models/chat';
 import ChatMetadata from '../models/chatMetadata';
 import Event from '../models/event';
+import User from '../models/user.model';
 
 export async function createDirectChat(req: Request, res: Response) {
     const result = await insertDirectChat(req.body);
@@ -72,8 +73,8 @@ export async function sendMessage(
     try {
         const chatId:string = req.params.chatId;
         const senderId:string = req.user; // assume auth middleware
-        const { text = "", type, media = [] } = req.body;
-
+        const { text = "", type = "text", media = [] } = req.body;
+        console.log(req.body);
         if (!text && !type && (!media || media.length === 0)) {
             res.status(400).json({ message: "Message cannot be empty" });
             return
@@ -141,12 +142,13 @@ export async function sendMessage(
         );
         // emit to message via room socket (chat) <== participant[] as read
         io.to(chatId).emit("message-update", messagePayload);
-
+        const userData = await User.findById(senderId, "userName");
         const inboxPayload = {
             chatId: chatId,
             type,
             lastMessage: text,
             lastMessageSenderId: senderId.toString(),
+            lastMessageSenderName: userData?.userName,
             lastMessageTime: now.toISOString(),
         };
 

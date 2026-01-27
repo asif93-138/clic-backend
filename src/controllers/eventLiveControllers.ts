@@ -438,7 +438,7 @@ export async function extensionC(req: Request, res: Response) {
     const updatedArr = result.extension;
     updatedArr.push(user_id);
     if (updatedArr.length === 2) {
-      io.to(dateRoomId).emit(`clicked:${dateRoomId}`);
+      io.to(dateRoomId).emit(`extended:${dateRoomId}`);
       updatedArr.sort();
       // const updateResult = await Matched.create({
       //   event_id: event_id,
@@ -466,45 +466,6 @@ export async function extensionC(req: Request, res: Response) {
       const updateResult = await DatingRoom.findByIdAndUpdate(result._id, {
         extension: [],
       });
-
-      const participants = mongooseIDArrayConversion(updatedArr);
-
-      // 🔥 find exact same participants (order-independent)
-      const chat = await Chat.findOneAndUpdate(
-        {
-          type: "direct",
-          participants: {
-            $all: participants,
-            $size: participants.length,
-          },
-        },
-        {
-          $setOnInsert: {
-            type: "direct",
-            participants,
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-        }
-      );
-      await ChatMetadata.findOneAndUpdate(
-        { chatId: chat._id },
-        {
-          $set: {
-            disconnectedBy: [],
-          },
-          $setOnInsert: {
-            chatId: chat._id,
-            mutedBy: [],
-          },
-        },
-        {
-          upsert: true,
-          new: true,
-        }
-      );
 
       res.json({ message: "both party have extended" });
     } else {
@@ -537,14 +498,47 @@ export async function updateClics(req: any, res: Response) {
   const result = await Cliced.findOneAndUpdate({ event_id: req.body.event_id, dateRoomDocId: req.body.dateRoomDocId },
     { $addToSet: { clics: req.user } }, { new: true }
   );
+  if (result?.clics.length == 2) {
+      const participants = mongooseIDArrayConversion(result?.clics);
+
+      // 🔥 find exact same participants (order-independent)
+      let chat = await Chat.findOne({
+        type: "direct",
+        participants: { $all: participants, $size: participants.length },
+      });
+
+      if (!chat) {
+        chat = await Chat.create({
+          type: "direct",
+          participants
+        });
+      }
+
+      await ChatMetadata.findOneAndUpdate(
+        { chatId: chat._id },
+        {
+          $set: {
+            disconnectedBy: [],
+          },
+          $setOnInsert: {
+            chatId: chat._id,
+            mutedBy: [],
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+        }
+      );
+  }
   if (result) {
     if (result?.person_1 == req.user) {
       const socket_id = userSocketMap.get(result?.person_2).socket_id;
-      io.to(socket_id).emit("cliced", result);
+      io.to(socket_id).emit("clic_request", result);
     }
     else {
       const socket_id = userSocketMap.get(result?.person_1).socket_id;
-      io.to(socket_id).emit("cliced", result);
+      io.to(socket_id).emit("clic_request", result);
     }
   }
   res.json(result);
