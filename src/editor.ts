@@ -13,8 +13,9 @@ const event_case: any[] = [
 ];
 
 const otherImageURLs = [
-  "1765304087209-783086381.png", "si-1.jfif", "si-2.avif", "si-3.webp",
-  "si-4.webp", "Picture%20Frame.png", "Picture%20Frame%20(1).png"
+  // "1765304087209-783086381.png", "si-1.jfif", "si-2.avif", "si-3.webp",
+  // "si-4.webp", 
+  "Picture%20Frame.png", "Picture%20Frame%20(1).png"
 ];
 const maleImageURLs = [
   "1765377068784-880713060.jpeg", "1767708391244-13194904.jpg",
