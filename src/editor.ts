@@ -1,168 +1,423 @@
-// import connectDB from "./config/dbConfig";
-// import { memoryStore } from "./tests/live/memoryStore/memoryStore";
+import mongoose from "mongoose";
+import connectDB from "./config/dbConfig";
+import User from "./models/user.model";
+import Event from "./models/event";
+import EventUser from "./models/eventUser";
+import Chat from "./models/chat";
+import ChatMetadata from "./models/chatMetadata";
+import invitations from './models/invitations';
 
-// connectDB();
+const event_case: any[] = [
+  "past-approved", "present-approved", "future-new", "future-approved",
+  "future-pending", "future-waiting", "future-invited"
+];
 
-// const mockWaitingFind = jest.fn();
-// const mockCallHistoryFind = jest.fn();
-// const mockUserFindById = jest.fn();
+const otherImageURLs = [
+  "1765304087209-783086381.png", "si-1.jfif", "si-2.avif", "si-3.webp",
+  "si-4.webp", "Picture%20Frame.png", "Picture%20Frame%20(1).png"
+];
+const maleImageURLs = [
+  "1765377068784-880713060.jpeg", "1767708391244-13194904.jpg",
+  "29414203809206102.jfif", "Dark%20Character%20Inspiration.jfif"
+];
+const femaleImageURLs = [
+  "kecc5bqvjptfeovn4squ.jpg", "ded1325db9d85e603966fc8884a4d6a0c3c22820.jpg",
+  "Simple%20Digital%20Arts.jfif", "a87946003f8843f7708d295493a2db4d44dabec7.jpg"
+];
 
-// jest.mock('dotenv', () => ({ config: jest.fn() }));
-// jest.mock('../dist/config/dbConfig', () => jest.fn());
-// jest.mock('../dist/jobs/sendNotification', () => jest.fn());
-// jest.mock('express', () => {
-//   const actualExpress = jest.requireActual('express');
-//   return actualExpress;
-// });
+export const qAs = [
+  {
+    "question": "How do you spend most of your time with other people?",
+    "selectedAns": "I engage with an eclectic collection of people I've met from all walks of life"
+  },
+  {
+    "question": "Which is the most important trait you look for in a partner?",
+    "selectedAns": "Adventurous"
+  },
+  {
+    "question": "Success: what does success mean to you?",
+    "selectedAns": "Personal contentment, spiritual awakening and/or emotional freedom"
+  },
+  {
+    "question": "Drugs: Have you taken recreational drugs?",
+    "selectedAns": "Sure - Do you have any on you now"
+  },
+  {
+    "question": "Lifestyle: I would prioritize having one of the following holidays in any given year",
+    "selectedAns": "Campervan / other adventurous or exploratory trip which may or may not include psychedelics"
+  },
+  {
+    "question": "Setbacks: How do you handle failure?",
+    "selectedAns": "I roll with the punches. What goes up must come down. And vice versa."
+  },
+  {
+    "question": "Spirituality:",
+    "selectedAns": "I interact with the spiritual world"
+  },
+  {
+    "question": "How could you describe your level of engagement in Sports / physical activity?",
+    "selectedAns": "I Run ultra marathons / triathlons / or similar"
+  },
+  {
+    "question": "Love of nature: I am",
+    "selectedAns": "Happy to live 50/50 city and country/mountains"
+  },
+  {
+    "question": "How would you describe your taste in music?",
+    "selectedAns": "True connoisseur - Classical or jazz"
+  }
+];
 
-// // Mock the model modules before loading server.ts
-// jest.mock('../dist/models/waitingRoom', () => {
-//   return { find: mockWaitingFind };
-// });
-// jest.mock('../dist/models/callHistory', () => {
-//   return { find: mockCallHistoryFind };
-// });
-// jest.mock('../dist/models/user.model', () => {
-//   return { findById: mockUserFindById };
-// });
+let maleUserCounter = 0, femaleUserCounter = 0, eventCounter = 0, malePhotoCounter = 0, femalePhotoCounter = 0, eventPhotoCounter = 0;
 
-// // Other models imported by server.ts can be left as empty mocks to avoid runtime errors
-// jest.mock('../dist/models/event', () => ({}));
-// jest.mock('../dist/models/datingRoom', () => ({}));
-// jest.mock('../dist/models/matched', () => ({}));
-// jest.mock('../dist/models/failedClic', () => ({}));
-// jest.mock('../dist/config/agenda', () => ({}));
-// jest.mock('agora-token', () => ({}));
+const maleActiveUsers = [], maleActiveUserIDs: any[] = [];
+const maleInactiveUsers = [], maleInactiveUserIDs: any[] = [];
+const femaleActiveUsers = [], femaleActiveUserIDs: any[] = [];
+const femaleInactiveUsers = [], femaleInactiveUserIDs: any[] = [];
 
-// describe('liveMatches (server.ts)', () => {
-//   let srv: any;
-//   let liveMatches: any;
-//   let mockEmit: jest.Mock;
+const activeUsers: any = {};
 
-//   beforeAll(() => {
-//     const rewire = require('rewire');
-//     srv = rewire('../dist/server.js');
-//     liveMatches = srv.__get__('liveMatches');
+for (let i = 0; i < 1; i++) {
+  maleActiveUsers.push({
+    email: `user-m-${maleUserCounter + 1}@email.com`,
+    password: "$2b$10$dQcFBT6UF7t1oya/zd.cg.0dhoSJqs.FpliFVz7IrcKbkJ9140kOu",
+    firstName: "User-M",
+    lastName: `${maleUserCounter + 1}`,
+    userName: `User-M ${maleUserCounter + 1}`,
+    imgURL: "uploads/" + maleImageURLs[malePhotoCounter],
+    dateOfBirth: Date(),
+    gender: "Male",
+    city: "Dhaka",
+    where_from: "Dhaka",
+    ques_ans: JSON.stringify(qAs),
+    hearingPlatform: "Friends or Family",
+    referredBy: "Asif",
+    approved: "approved",
+  }); maleUserCounter++;
+  if (malePhotoCounter == (maleImageURLs.length - 1)) malePhotoCounter = 0; else malePhotoCounter++;
+  femaleActiveUsers.push({
+    email: `user-f-${femaleUserCounter + 1}@email.com`,
+    password: "$2b$10$dQcFBT6UF7t1oya/zd.cg.0dhoSJqs.FpliFVz7IrcKbkJ9140kOu",
+    firstName: "User-F",
+    lastName: `${femaleUserCounter + 1}`,
+    userName: `User-F ${femaleUserCounter + 1}`,
+    imgURL: "uploads/" + femaleImageURLs[femalePhotoCounter],
+    dateOfBirth: Date(),
+    gender: "Female",
+    city: "Dhaka",
+    where_from: "Dhaka",
+    ques_ans: JSON.stringify(qAs),
+    hearingPlatform: "Friends or Family",
+    referredBy: "Asif",
+    approved: "approved",
+  }); femaleUserCounter++;
+  if (femalePhotoCounter == (femaleImageURLs.length - 1)) femalePhotoCounter = 0; else femalePhotoCounter++;
+}
 
-//     // Replace the user model with a mock AFTER rewire loads
-//     const mockUserModel = {
-//       default: {
-//         findById: mockUserFindById
-//       }
-//     };
-//     srv.__set__('user_model_1', mockUserModel);
-//   });
+for (let i = 0; i < 1; i++) {
+  maleInactiveUsers.push({
+    email: `user-m-${maleUserCounter + 1}@email.com`,
+    password: "$2b$10$dQcFBT6UF7t1oya/zd.cg.0dhoSJqs.FpliFVz7IrcKbkJ9140kOu",
+    firstName: "User-M",
+    lastName: `${maleUserCounter + 1}`,
+    userName: `User-M ${maleUserCounter + 1}`,
+    imgURL: "uploads/" + maleImageURLs[malePhotoCounter],
+    dateOfBirth: Date(),
+    gender: "Male",
+    city: "Dhaka",
+    where_from: "Dhaka",
+    ques_ans: JSON.stringify(qAs),
+    hearingPlatform: "Friends or Family",
+    referredBy: "Asif",
+    approved: "approved",
+  }); maleUserCounter++;
+  if (malePhotoCounter == (maleImageURLs.length - 1)) malePhotoCounter = 0; else malePhotoCounter++;
+  femaleInactiveUsers.push({
+    email: `user-f-${femaleUserCounter + 1}@email.com`,
+    password: "$2b$10$dQcFBT6UF7t1oya/zd.cg.0dhoSJqs.FpliFVz7IrcKbkJ9140kOu",
+    firstName: "User-F",
+    lastName: `${femaleUserCounter + 1}`,
+    userName: `User-F ${femaleUserCounter + 1}`,
+    imgURL: "uploads/" + femaleImageURLs[femalePhotoCounter],
+    dateOfBirth: Date(),
+    gender: "Female",
+    city: "Dhaka",
+    where_from: "Dhaka",
+    ques_ans: JSON.stringify(qAs),
+    hearingPlatform: "Friends or Family",
+    referredBy: "Asif",
+    approved: "approved",
+  }); femaleUserCounter++;
+  if (femalePhotoCounter == (femaleImageURLs.length - 1)) femalePhotoCounter = 0; else femalePhotoCounter++;
+}
 
-//   beforeEach(() => {
-//     mockWaitingFind.mockClear();
-//     mockCallHistoryFind.mockClear();
-//     mockUserFindById.mockClear();
-//     mockEmit = jest.fn();
-//     srv.__set__('io', { emit: mockEmit });
-//   });
+function formatToYMDHM(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hour = String(date.getUTCHours()).padStart(2, "0");
+  const minute = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
 
-//   afterAll(async () => {
-//     try {
-//       const s = srv.__get__('server');
-//       if (s && typeof s.close === 'function') {
-//         await new Promise<void>((resolve) => {
-//           s.close(() => resolve());
-//           setTimeout(resolve, 100); // force close after 100ms
-//         });
-//       }
-//     } catch (e) {
-//       // ignore
-//     }
-//     // Disconnect mongoose
-//     try {
-//       const mongoose = require('mongoose');
-//       await mongoose.disconnect();
-//     } catch (e) {
-//       // ignore
-//     }
-//   });
+const parsedDate = Date.parse(new Date().toString());
 
-//   test('returns potentialMatches and emits event when there is one waiting user and no call history', async () => {
-//     const event_id = 'event1';
-//     const user_id = 'u1';
-//     const gender = 'M';
-//     const interested = 'F';
-
-//     // WaitingRoom.find returns one user matching interested gender
-//     mockWaitingFind.mockResolvedValue([{ user_id: 'u2' }]);
-
-//     // No call history for this event
-//     mockCallHistoryFind.mockResolvedValue([]);
-
-//     // User.findById called for potential matches and the requesting user
-//     mockUserFindById.mockImplementation(async (id: string) => {
-//       if (id === 'u2') return { _id: 'u2', userName: 'User2', imgURL: 'url2' };
-//       if (id === 'u1') return { _id: 'u1', userName: 'User1', imgURL: 'url1' };
-//       return null;
-//     });
-
-//     const result = await liveMatches({ event_id, user_id, gender, interested, rejoin: false });
-
-//     // Expect history array empty, one potential match returned
-//     expect(result).toBeDefined();
-//     expect(Array.isArray(result.historyArr)).toBe(true);
-//     expect(result.historyArr.length).toBe(0);
-//     expect(Array.isArray(result.potentialMatches)).toBe(true);
-//     expect(result.potentialMatches.length).toBe(1);
-//     expect(result.potentialMatches[0]).toMatchObject({ _id: 'u2', userName: 'User2', imgURL: 'url2' });
-
-//     // Expect io.emit called to broadcast potential matches with the requesting user's own data
-//     expect(mockEmit).toHaveBeenCalledTimes(1);
-//     expect(mockEmit).toHaveBeenCalledWith(`${event_id}-${gender}-potential-matches`, { _id: 'u1', userName: 'User1', imgURL: 'url1' });
-//   });
-
-//   test('filters out users present in call history and returns other potential matches; historyArr contains previous contacts', async () => {
-//     const event_id = 'event2';
-//     const user_id = 'u1';
-//     const gender = 'M';
-//     const interested = 'F';
-
-//     // Two waiting users u2 and u3
-//     mockWaitingFind.mockResolvedValue([{ user_id: 'u2' }, { user_id: 'u3' }]);
-
-//     // Call history indicates u2 was already contacted by u1 and there is another contact u4
-//     mockCallHistoryFind.mockResolvedValue([
-//       { person_1: 'u1', person_2: 'u2' },
-//       { person_1: 'u4', person_2: 'u1' }
-//     ]);
-
-//     mockUserFindById.mockImplementation(async (id: string) => {
-//       return { _id: id, userName: `User-${id}`, imgURL: `url-${id}` };
-//     });
-
-//     const result = await liveMatches({ event_id, user_id, gender, interested, rejoin: false });
-
-//     expect(result).toBeDefined();
-//     expect(Array.isArray(result.historyArr)).toBe(true);
-//     expect(result.historyArr).toEqual(expect.arrayContaining(['u2', 'u4']));
-
-//     expect(Array.isArray(result.potentialMatches)).toBe(true);
-//     expect(result.potentialMatches.length).toBe(1);
-//     expect(result.potentialMatches[0]).toMatchObject({ _id: 'u3', userName: 'User-u3', imgURL: 'url-u3' });
-
-//     expect(mockEmit).toHaveBeenCalledWith(`${event_id}-${gender}-potential-matches`, { _id: 'u1', userName: 'User-u1', imgURL: 'url-u1' });
-//   });
-
-//   // test('returns undefined when rejoin is true (no processing)', async () => {
-//   //   const res = await liveMatches({ event_id: 'e', user_id: 'u', gender: 'M', interested: 'F', rejoin: true });
-//   //   expect(res).toBeUndefined();
-//   //   expect(mockEmit).not.toHaveBeenCalled();
-//   // });
-// });
-// "pretest": "tsc -p tsconfig.build.json",
-
+const dateArr = [new Date(parsedDate - 86400000), new Date(parsedDate), new Date(parsedDate + 86400000)];
 
 
-// (async function () {
+(async function () {
+  await connectDB(true);
+  await mongoose.connection.dropDatabase();
 
-// })();
+  const insertedMaleActiveUsers = await User.create(maleActiveUsers);
+  insertedMaleActiveUsers.forEach((x: any) => {
+    maleActiveUserIDs.push(x._id);
+    activeUsers[x._id.toString()] = { userName: x.userName, imgURL: x.imgURL };
+  });
+  const insertedFemaleActiveUsers = await User.create(femaleActiveUsers);
+  insertedFemaleActiveUsers.forEach((x: any) => {
+    femaleActiveUserIDs.push(x._id);
+    activeUsers[x._id.toString()] = { userName: x.userName, imgURL: x.imgURL };
+  });
+  const insertedMaleInactiveUsers = await User.create(maleInactiveUsers);
+  insertedMaleInactiveUsers.forEach((x: any) => maleInactiveUserIDs.push(x._id));
+  const insertedFemaleInactiveUsers = await User.create(femaleInactiveUsers);
+  insertedFemaleInactiveUsers.forEach((x: any) => femaleInactiveUserIDs.push(x._id));
 
-// (async function () {
-//     const result = await User.deleteMany({createdAt: { $gt: new Date("2025-11-16T06:00:00.000Z") }});
-//     console.log(result);
-// })();
+  for (const ec of event_case) {
+    const arr: any[] = [], rsvpArr: any[] = [], invitedUser: any[] = [];
+    switch (ec) {
+      case "past-approved":
+        const insertedPastEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[0]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedPastEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedPastEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat = await Chat.create({
+          type: "group", event_id: insertedPastEvents._id, participants: arr
+        });
+        const insertedChatMetaData = await ChatMetadata.create({
+          chatId: insertedChat._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs = await EventUser.create(rsvpArr);
+        break;
+
+      case "present-approved":
+        const insertedPresentEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[1]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedPresentEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedPresentEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_1 = await Chat.create({
+          type: "group", event_id: insertedPresentEvents._id, participants: arr
+        });
+        const insertedChatMetaData_1 = await ChatMetadata.create({
+          chatId: insertedChat_1._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_1 = await EventUser.create(rsvpArr);
+        break;
+
+      case "future-approved":
+        const insertedFutureEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[2]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_2 = await Chat.create({
+          type: "group", event_id: insertedFutureEvents._id, participants: arr
+        });
+        const insertedChatMetaData_2 = await ChatMetadata.create({
+          chatId: insertedChat_2._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_2 = await EventUser.create(rsvpArr);
+        break;
+
+      case "future-pending":
+        const insertedFuturePEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[2]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFuturePEvents._id, user_id: x.toString(), status: "pending" });
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFuturePEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_3 = await Chat.create({
+          type: "group", event_id: insertedFuturePEvents._id, participants: arr
+        });
+        const insertedChatMetaData_3 = await ChatMetadata.create({
+          chatId: insertedChat_3._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_3 = await EventUser.create(rsvpArr);
+        break;
+
+      case "future-new":
+        const insertedFutureNEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[2]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureNEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_4 = await Chat.create({
+          type: "group", event_id: insertedFutureNEvents._id, participants: arr
+        });
+        const insertedChatMetaData_4 = await ChatMetadata.create({
+          chatId: insertedChat_4._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_4 = await EventUser.create(rsvpArr);
+        break;
+
+      case "future-waiting":
+        const insertedFutureWEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[2]),
+          location: "Dhaka",
+          event_status: true,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureWEvents._id, user_id: x.toString(), status: "waiting" });
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureWEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_5 = await Chat.create({
+          type: "group", event_id: insertedFutureWEvents._id, participants: arr
+        });
+        const insertedChatMetaData_5 = await ChatMetadata.create({
+          chatId: insertedChat_5._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_5 = await EventUser.create(rsvpArr);
+        break;
+
+      case "future-invited":
+        const insertedFutureIEvents = await Event.create({
+          title: "Test Event-" + (eventCounter + 1),
+          imgURL: "uploads/" + otherImageURLs[eventPhotoCounter],
+          description: "default text description.",
+          date_time: formatToYMDHM(dateArr[2]),
+          location: "Dhaka",
+          event_status: false,
+          event_duration: 180,
+          call_duration: 180,
+          gate_closing: 30,
+          extension_limit: 3,
+        });
+        [...maleActiveUserIDs, ...femaleActiveUserIDs].forEach(x => {
+          invitedUser.push({
+            event_id: insertedFutureIEvents._id,
+            title: insertedFutureIEvents.title,
+            user_id: x.toString(),
+            userName: activeUsers[x.toString()].userName,
+            user_imgURL: activeUsers[x.toString()].imgURL,
+            status: "invited"
+          });
+        });
+        [...maleInactiveUserIDs, ...femaleInactiveUserIDs].forEach(x => {
+          rsvpArr.push({ event_id: insertedFutureIEvents._id, user_id: x.toString(), status: "approved" });
+          arr.push(x);
+        });
+        const insertedChat_6 = await Chat.create({
+          type: "group", event_id: insertedFutureIEvents._id, participants: arr
+        });
+        const insertedChatMetaData_6 = await ChatMetadata.create({
+          chatId: insertedChat_6._id, name: "Test Event-" + (eventCounter + 1), mutedBy: [], disconnectedBy: []
+        });
+        const insertedRSVPs_6 = await EventUser.create(rsvpArr);
+        const inviteResult = await invitations.create(invitedUser);
+    }
+    eventCounter++;
+    if (eventPhotoCounter == (otherImageURLs.length - 1)) eventPhotoCounter = 0; else eventPhotoCounter++;
+  }
+
+  const directChatArr: any[] = [], directChatMetadataArr: any[] = [];
+
+  maleActiveUserIDs.forEach(x => {
+    femaleActiveUserIDs.forEach(y => {
+      directChatArr.push({ type: "direct", participants: [x, y] });
+    });
+  });
+
+  const insertDirectChats = await Chat.create(directChatArr);
+
+  insertDirectChats.forEach(x => {
+    directChatMetadataArr.push({
+      chatId: x._id, mutedBy: [], disconnectedBy: []
+    });
+  });
+
+  const insertDirectChatMetaData = await ChatMetadata.create(directChatMetadataArr);
+
+  console.log("done!");
+})();

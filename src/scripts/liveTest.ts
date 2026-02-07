@@ -8,10 +8,11 @@ import Event from "../models/event";
 import EventUser from "../models/eventUser";
 import { generateToken } from "../utils/jwt";
 import { performance } from "perf_hooks";
+import { qAs } from "../editor";
 
 /** ------------------- Global Config ------------------- */
-const maleCount = 2;
-const femaleCount = 2;
+const maleCount = 15;
+const femaleCount = 15;
 const leaveDelay = { min: 1000, random: 2500 }; // ms
 
 // First run server: npm run dev test
@@ -257,11 +258,11 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       lastName: `${i}`,
       userName: `User-M ${i}`,
       imgURL: "uploads/banner-5.png",
-      dateOfBirth: new Date(),
+      dateOfBirth: Date(),
       gender: "Male",
       city: "Dhaka",
       where_from: "Dhaka",
-      ques_ans: "[]",
+      ques_ans: JSON.stringify(qAs),
       hearingPlatform: "Friends or Family",
       referredBy: "Asif",
       approved: "approved",
@@ -283,11 +284,11 @@ async function createBulkUsers(maleCount: number, femaleCount: number) {
       lastName: `${i}`,
       userName: `User-F ${i}`,
       imgURL: "uploads/banner-5.png",
-      dateOfBirth: new Date(),
+      dateOfBirth: Date(),
       gender: "Female",
       city: "Dhaka",
       where_from: "Dhaka",
-      ques_ans: "[]",
+      ques_ans: JSON.stringify(qAs),
       hearingPlatform: "Friends or Family",
       referredBy: "Asif",
       approved: "approved",
